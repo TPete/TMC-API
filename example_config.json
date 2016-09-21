@@ -1,0 +1,12 @@
+{
+	"pathMovies": "/path/to/movies/", 
+	"aliasMovies": "/alias of movies dir/",
+	"pathShows": "/path/to/tv shows/", 
+	"aliasShows": "/alias of tv shows dir/",
+	"dbHost": "db host name",
+	"dbName": "db name",
+	"dbUser": "db user name",
+	"dbPassword": "db password",
+	"TMDBApiKey": "themoviedb.org api key",
+	"TTVDBApiKey": "thetvdb.com api key"
+}

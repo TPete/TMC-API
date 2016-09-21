@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS `list_parts` (
+ `LIST_ID` int(11) NOT NULL,
+ `MOVIE_ID` int(11) NOT NULL,
+ FOREIGN KEY (`LIST_ID`) 
+        REFERENCES `lists`(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
