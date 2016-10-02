@@ -5,8 +5,31 @@ require "vendor/autoload.php";
 require "vendor/james-heinrich/getid3/getid3/getid3.php";
 
 use TinyMediaCenter\API;
+use Slim\Http\Request;
+use Slim\Http\Response;
 
-$app = new Slim\Slim(['templates.path' => 'templates/']);
+$app = new Slim\App();
+
+// Get container
+$container = $app->getContainer();
+
+//use RequestResponseArgs strategy
+$container['foundHandler'] = function () {
+    return new \Slim\Handlers\Strategies\RequestResponseArgs();
+};
+
+//Redirect url ending in non-trailing slash to trailing equivalent
+$app->add(function (Request $request, Response $response, callable $next) {
+    $uri = $request->getUri();
+    $path = $uri->getPath();
+    if ($path != '/' && substr($path, -1) !== '/') {
+        $uri = $uri->withPath($path.'/');
+
+        return $response->withRedirect((string) $uri, 301);
+    }
+
+    return $next($request, $response);
+});
 
 $config = API\Util::readJSONFile("config.json");
 $db = [
@@ -21,7 +44,7 @@ $app->get('/', function () {
 });
 
 $app->get(
-    '/config',
+    '/config/',
     function () {
         $file = "config.json";
         if (!file_exists($file)) {
@@ -33,8 +56,8 @@ $app->get(
 );
 
 $app->get(
-    '/config/check/:type',
-    function ($type) {
+    '/config/check/{type}/',
+    function (Request $request, Response $response, $type) {
         if ($type === "db") {
             $res = [];
             try {
@@ -89,28 +112,29 @@ $app->get(
 );
 
 $app->post(
-    '/config',
-    function () use ($app) {
-        $config = [];
-        $config["pathMovies"]  = $_POST["pathMovies"];
-        $config["aliasMovies"] = $_POST["aliasMovies"];
-        $config["pathShows"]   = $_POST["pathShows"];
-        $config["aliasShows"]  = $_POST["aliasShows"];
-        $config["dbHost"]      = $_POST["dbHost"];
-        $config["dbName"]      = $_POST["dbName"];
-        $config["dbUser"]      = $_POST["dbUser"];
-        $config["dbPassword"]  = $_POST["dbPassword"];
-        $config["TMDBApiKey"]  = $_POST["TMDBApiKey"];
-        $config["TTVDBApiKey"] = $_POST["TTVDBApiKey"];
+    '/config/',
+    function (Request $request, Response $response) use ($app) {
+        $config = [
+            "pathMovies"  => $_POST["pathMovies"],
+            "aliasMovies" => $_POST["aliasMovies"],
+            "pathShows"   => $_POST["pathShows"],
+            "aliasShows"  => $_POST["aliasShows"],
+            "dbHost"      => $_POST["dbHost"],
+            "dbName"      => $_POST["dbName"],
+            "dbUser"      => $_POST["dbUser"],
+            "dbPassword"  => $_POST["dbPassword"],
+            "TMDBApiKey"  => $_POST["TMDBApiKey"],
+            "TTVDBApiKey" => $_POST["TTVDBApiKey"],
+        ];
 
         API\Util::writeJSONFile("config.json", $config);
 
-        $app->redirect('/install');
+        return $response->withRedirect('/install/');
     }
 );
 
 $app->post(
-    '/config/db',
+    '/config/db/',
     function () use ($db) {
         try {
             $showStore   = new API\ShowStoreDB($db);
@@ -132,7 +156,7 @@ $app->post(
 );
 
 $app->get(
-    '/categories',
+    '/categories/',
     function () use ($config, $db) {
         //expects tv shows to be in sub folders of $config["pathShows"]
         //where each sub folder will be listed as a different category
@@ -183,8 +207,8 @@ $app->group('/shows', function () use ($app, $config, $db) {
     );
 
     $app->get(
-        '/:category/',
-        function ($category) use ($showController) {
+        '/{category}/',
+        function (Request $request, Response $response, $category) use ($showController) {
             try {
                 $list = $showController->getList($category);
                 echo json_encode($list);
@@ -195,8 +219,8 @@ $app->group('/shows', function () use ($app, $config, $db) {
     );
 
     $app->get(
-        '/:category/episodes/:id/',
-        function ($category, $id) use ($showController) {
+        '/{category}/episodes/{id}/',
+        function (Request $request, Response $response, $category, $id) use ($showController) {
             try {
                 $description = $showController->getEpisodeDescription($category, $id);
                 echo json_encode($description);
@@ -207,8 +231,8 @@ $app->group('/shows', function () use ($app, $config, $db) {
     );
 
     $app->get(
-        '/:category/:id/',
-        function ($category, $id) use ($showController) {
+        '/{category}/{id}/',
+        function (Request $request, Response $response, $category, $id) use ($showController) {
             try {
                 $details = $showController->getDetails($category, $id);
                 echo json_encode($details);
@@ -219,8 +243,8 @@ $app->group('/shows', function () use ($app, $config, $db) {
     );
 
     $app->post(
-        '/:category/edit/:id/',
-        function ($category, $id) use ($showController) {
+        '/{category}/edit/{id}/',
+        function (Request $request, Response $response, $category, $id) use ($showController) {
             try {
                 $tvdbid = (int) $_POST["tvdbId"];
                 echo $showController->updateDetails($category, $id, $_POST["title"], $tvdbid, $_POST["lang"]);
@@ -241,8 +265,8 @@ $app->group('/movies', function () use ($app, $config, $db) {
     );
 
     $app->get(
-        '/:category/',
-        function ($category) use ($movieController) {
+        '/{category}/',
+        function (Request $request, Response $response, $category) use ($movieController) {
             try {
                 $orgSort = API\Util::initGET("sort", "name_asc");
                 $split   = explode("_", $orgSort);
@@ -272,8 +296,8 @@ $app->group('/movies', function () use ($app, $config, $db) {
     );
 
     $app->get(
-        '/:category/genres/',
-        function ($category) use ($movieController) {
+        '/{category}/genres/',
+        function (Request $request, Response $response, $category) use ($movieController) {
             try {
                 $genres = $movieController->getGenres($category);
 
@@ -295,8 +319,8 @@ $app->group('/movies', function () use ($app, $config, $db) {
     );
 
     $app->get(
-        '/:category/compilations/',
-        function ($category) use ($movieController) {
+        '/{category}/compilations/',
+        function (Request $request, Response $response, $category) use ($movieController) {
             try {
                 $lists       = $movieController->getLists($category);
                 $collections = $movieController->getCollections($category);
@@ -313,7 +337,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
     );
 
     $app->post(
-        '/maintenance',
+        '/maintenance/',
         function () use ($movieController) {
             try {
                 $result = $movieController->updateData();
@@ -326,8 +350,8 @@ $app->group('/movies', function () use ($app, $config, $db) {
     );
 
     $app->get(
-        '/lookup/:id',
-        function ($id) use ($movieController) {
+        '/lookup/{id}/',
+        function (Request $request, Response $response, $id) use ($movieController) {
             try {
                 $id = intval($id, 10);
                 $details = $movieController->lookupMovie($id);
@@ -340,8 +364,8 @@ $app->group('/movies', function () use ($app, $config, $db) {
     );
 
     $app->get(
-        '/:category/:id',
-        function ($category, $id) use ($movieController) {
+        '/{category}/{id}/',
+        function (Request $request, Response $response, $category, $id) use ($movieController) {
             try {
                 $id      = intval($id, 10);
                 $details = $movieController->getMovieDetails($category, $id);
@@ -354,7 +378,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
     );
 
     $app->post(
-        '/:category/:id',
+        '/{category}/{id}/',
         function ($category, $id) use ($movieController) {
             echo "updating";
             try {
