@@ -119,7 +119,7 @@ class Util
                             break;
                         //fall-through
                         case '{':
-                        //fall-through
+                            //fall-through
                         case '[':
                             $level++;
                         //fall-through
@@ -280,5 +280,35 @@ class Util
         curl_close($ch);
 
         return ($httpCode < 400);
+    }
+
+    /**
+     * @param string $var
+     * @param string $default
+     * @param bool   $toInt
+     *
+     * @return int|string
+     */
+    public static function initGET($var, $default = "", $toInt = false)
+    {
+        $res = isset($_GET[$var]) ? $_GET[$var] : $default;
+        $res = trim($res);
+        if ($toInt) {
+            $res = intval($res, 10);
+        }
+
+        return $res;
+    }
+
+    /**
+     * @param \Exception $exception
+     *
+     * @return string
+     */
+    public static function handleException(\Exception $exception)
+    {
+        $error = ["error" => $exception->getMessage(), "trace" => $exception->getTrace()];
+
+        return json_encode($error);
     }
 }

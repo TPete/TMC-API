@@ -16,25 +16,6 @@ $db = [
     "password" => $config["dbPassword"],
 ];
 
-function initGET($var, $default = "", $toInt = false)
-{
-    $res = isset($_GET[$var]) ? $_GET[$var] : $default;
-    $res = trim($res);
-    if ($toInt) {
-        $res = intval($res, 10);
-    }
-
-    return $res;
-}
-
-function handleException(Exception $exception)
-{
-    $error = ["error" => $exception->getMessage(), "trace" => $exception->getTrace()];
-    echo json_encode($error);
-}
-
-;
-
 $app->get('/', function () {
     echo "nothing to see here";
 });
@@ -145,7 +126,7 @@ $app->post(
                 echo "Error";
             }
         } catch (Exception $e) {
-            handleException($e);
+            echo API\Util::handleException($e);
         }
     }
 );
@@ -196,7 +177,7 @@ $app->group('/shows', function () use ($app, $config, $db) {
                 $result = $showController->updateData();
                 echo json_encode($result);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -208,7 +189,7 @@ $app->group('/shows', function () use ($app, $config, $db) {
                 $list = $showController->getList($category);
                 echo json_encode($list);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -220,7 +201,7 @@ $app->group('/shows', function () use ($app, $config, $db) {
                 $description = $showController->getEpisodeDescription($category, $id);
                 echo json_encode($description);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -232,7 +213,7 @@ $app->group('/shows', function () use ($app, $config, $db) {
                 $details = $showController->getDetails($category, $id);
                 echo json_encode($details);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -244,7 +225,7 @@ $app->group('/shows', function () use ($app, $config, $db) {
                 $tvdbid = (int) $_POST["tvdbId"];
                 echo $showController->updateDetails($category, $id, $_POST["title"], $tvdbid, $_POST["lang"]);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -263,17 +244,17 @@ $app->group('/movies', function () use ($app, $config, $db) {
         '/:category/',
         function ($category) use ($movieController) {
             try {
-                $orgSort = initGET("sort", "name_asc");
+                $orgSort = API\Util::initGET("sort", "name_asc");
                 $split   = explode("_", $orgSort);
                 $sort    = $split[0];
                 $order   = $split[1];
 
-                $filter     = initGET("filter");
-                $genre      = initGET("genre");
-                $cnt        = initGET("cnt", -1, true);
-                $offset     = initGET("offset", 0, true);
-                $collection = initGET("collection", 0, true);
-                $list       = initGET("list", 0, true);
+                $filter     = API\Util::initGET("filter");
+                $genre      = API\Util::initGET("genre");
+                $cnt        = API\Util::initGET("cnt", -1, true);
+                $offset     = API\Util::initGET("offset", 0, true);
+                $collection = API\Util::initGET("collection", 0, true);
+                $list       = API\Util::initGET("list", 0, true);
 
                 if ($collection > 0) {
                     $movieList = $movieController->getMoviesForCollection($category, $collection, $cnt, $offset);
@@ -285,7 +266,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
 
                 echo json_encode($movieList);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -297,7 +278,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
                 $genres = $movieController->getGenres($category);
 
                 $resp = [];
-                $comp = initGET("term");
+                $comp = API\Util::initGET("term");
                 $comp = mb_strtolower($comp);
                 $l    = strlen($comp);
                 foreach ($genres as $gen) {
@@ -308,7 +289,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
 
                 echo json_encode($resp);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -326,7 +307,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
 
                 echo json_encode($comp);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -339,7 +320,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
 
                 echo json_encode($result);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -353,7 +334,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
 
                 echo json_encode($details);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -367,7 +348,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
 
                 echo json_encode($details);
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
@@ -383,7 +364,7 @@ $app->group('/movies', function () use ($app, $config, $db) {
 
                 echo $res;
             } catch (Exception $e) {
-                handleException($e);
+                echo API\Util::handleException($e);
             }
         }
     );
