@@ -181,7 +181,10 @@ $app->get(
             $config["TMDBApiKey"]
         );
         $movies     = $movieController->getCategories();
-        $categories = array_merge($shows, $movies);
+        $categories = [
+            'shows' => $shows,
+            'movies' => $movies,
+        ];
 
         echo json_encode($categories);
     }
