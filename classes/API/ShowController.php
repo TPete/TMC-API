@@ -65,7 +65,7 @@ class ShowController extends AbstractController
                 "folder" => $show["folder"],
                 "title" => $show["title"],
                 "tvdb_id" => $show["tvdb_id"],
-                "thumbUrl" => $path.$show["folder"]."/thumb_260.jpg",
+                "thumbUrl" => $path.$show["folder"]."/thumb.jpg",
             ];
         }
 
@@ -168,7 +168,7 @@ class ShowController extends AbstractController
                 unlink($path);
             }
             $path = $this->getCategoryPath($category);
-            $path .= $folder."/thumb_260.jpg";
+            $path .= $folder."/thumb.jpg";
             if (file_exists($path)) {
                 unlink($path);
             }
@@ -389,10 +389,10 @@ class ShowController extends AbstractController
         foreach ($folders as $folder) {
             $path = $basePath.$folder."/";
             $protocol .= $path;
-            $dim = 260;
-            if (!file_exists($path."thumb_".$dim.".jpg")) {
+            $dim = 512;
+            if (!file_exists($path."thumb.jpg")) {
                 if (file_exists($path."bg.jpg")) {
-                    Util::resizeImage($path."bg.jpg", $path."thumb_".$dim.".jpg", $dim, $dim);
+                    Util::resizeImage($path."bg.jpg", $path."thumb.jpg", $dim, $dim);
                     $protocol .= "done";
                 } else {
                     $protocol .= "Failed to create thumbnail: no background image.";
