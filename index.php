@@ -89,7 +89,9 @@ $app->get(
                 and is_writable($_GET["pathMovies"])
                 and API\Util::checkUrl($_GET["aliasMovies"])
             ) {
-                $res["result"] = "Ok";
+                $res["result"]  = "Ok";
+                $folders        = API\Util::getFolders($_GET["pathMovies"]);
+                $res["folders"] = $folders;
             } else {
                 $res["result"] = "Error";
             }
