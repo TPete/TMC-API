@@ -97,7 +97,7 @@ class ShowStoreDB extends AbstractStore
     public function getEpisodeDescription($category, $id)
     {
         $db = $this->connect();
-        $sql = "Select concat( season_no, 'x', lpad(episode_no, 2, '0'), ' ', title ) title, description
+        $sql = "Select concat( season_no, 'x', lpad(episode_no, 2, '0')) episode, title, description
 				From show_episodes
 				Where id = :id
 				order by title";

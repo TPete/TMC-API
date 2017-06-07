@@ -302,6 +302,7 @@ class MovieController extends AbstractController
         $alias = $this->getCategoryAlias($category);
         foreach ($movies as &$movie) {//call by reference
             $movie["poster"] = $alias."pictures/".$movie["movie_db_id"]."_333x500.jpg";
+            $movie["filename"] = $alias.$movie["filename"];
         }
 
         return $movies;

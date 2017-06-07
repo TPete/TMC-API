@@ -33,11 +33,16 @@ class MovieStoreDB extends AbstractStore
         $db = $this->connect();
         $sqlCols = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
 						mov.countries, mov.actors, mov.director, mov.info, mov.original_title, 
-						mov.title_sort, mov.added_date, mov.release_date";
+						mov.title_sort, mov.added_date, mov.release_date, mov.collection_id, ifnull(col.name, '') collection_name";
         $sqlCnt = "Select count(*) Cnt";
         $sql = "
 				From movies mov
-				Where mov.category = '".$category."' ";
+				Left Join (
+				    Select *
+				    From collections col
+				    Where col.category = '".$category."'
+				) col on mov.COLLECTION_ID = col.MOVIE_DB_ID
+				Where mov.category = '".$category."'";
 
         if (strlen($genres) > 0) {
             $whereGenres = "";
@@ -123,6 +128,8 @@ class MovieStoreDB extends AbstractStore
             $stmt = $db->query($sql);
             $list = array();
             while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                $row['genres'] = explode(',', $row['genres']);
+                $row['actors'] = explode(',', $row['actors']);
                 $list[] = $row;
             }
 
@@ -145,7 +152,7 @@ class MovieStoreDB extends AbstractStore
         $db = $this->connect();
         $sqlCnt = "Select count(*) Cnt";
         $sqlCols = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
-						mov.countries, mov.actors, mov.director, mov.info, mov.original_title, mov.collection_id";
+						mov.countries, mov.actors, mov.director, mov.info, mov.original_title, mov.collection_id, col.name collection_name";
         $sql = "
 				From collections col
 				Join collection_parts parts on col.ID = parts.COLLECTION_ID
@@ -173,6 +180,8 @@ class MovieStoreDB extends AbstractStore
             $stmt->execute();
             $list = array();
             while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                $row['genres'] = explode(',', $row['genres']);
+                $row['actors'] = explode(',', $row['actors']);
                 $list[] = $row;
             }
 
