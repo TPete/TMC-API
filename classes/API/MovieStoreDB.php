@@ -114,7 +114,7 @@ class MovieStoreDB extends AbstractStore
             }
             if ($sort === "date") {
                 $sql .= "
-						Order by sorter, dist, ADDED_DATE ".$order;
+						Order by sorter, dist, ID ".$order;
             }
             if ($sort === "year") {
                 $sql .= "
@@ -129,7 +129,7 @@ class MovieStoreDB extends AbstractStore
             $list = array();
             while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
                 $row['genres'] = explode(',', $row['genres']);
-                $row['actors'] = explode(',', $row['actors']);
+                $row['actors'] = explode(',', str_replace('&nbsp;', ' ', $row['actors']));
                 $list[] = $row;
             }
 
@@ -181,7 +181,7 @@ class MovieStoreDB extends AbstractStore
             $list = array();
             while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
                 $row['genres'] = explode(',', $row['genres']);
-                $row['actors'] = explode(',', $row['actors']);
+                $row['actors'] = explode(',', str_replace('&nbsp;', ' ', $row['actors']));
                 $list[] = $row;
             }
 
