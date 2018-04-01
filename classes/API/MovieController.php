@@ -143,13 +143,25 @@ class MovieController extends AbstractController
      * @param string $movieDBID
      * @param string $filename
      *
-     * @return string
+     * @return array
      */
     public function updateFromScraper($category, $localId, $movieDBID, $filename)
     {
         $movie = $this->scraper->getMovieInfo($movieDBID, $this->getCategoryPath($category), $filename);
 
-        return $this->updateMovie($category, $movie, $localId);
+        $result = $this->updateMovie($category, $movie, $localId);
+
+        if ($result === 'Error') {
+            return [
+                'status' => 'Error',
+                'error' => '',
+            ];
+        } else {
+            return [
+                'status' => 'Ok',
+                'result' => $result,
+            ];
+        }
     }
 
     /**

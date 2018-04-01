@@ -384,14 +384,12 @@ $app->group('/movies', function () use ($app, $config, $db) {
 
     $app->post(
         '/{category}/{id}/',
-        function ($category, $id) use ($movieController) {
-            echo "updating";
+        function (Request $request, Response $response, $category, $id) use ($movieController) {
             try {
                 $id  = intval($id, 10);
-                $res = $movieController->updateFromScraper($category, $id, $_POST["movieDBID"], $_POST["filename"]);
-                var_dump($res);
+                $res = $movieController->updateFromScraper($category, $id, $_POST["movieDbId"], $_POST["filename"]);
 
-                echo $res;
+                return json_encode($res);
             } catch (Exception $e) {
                 echo API\Util::handleException($e);
             }
