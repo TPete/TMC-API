@@ -4,9 +4,15 @@ set_time_limit(900);
 require "vendor/autoload.php";
 require "vendor/james-heinrich/getid3/getid3/getid3.php";
 
-use TinyMediaCenter\API;
 use Slim\Http\Request;
 use Slim\Http\Response;
+use TinyMediaCenter\API;
+use TinyMediaCenter\API\Controller\Category\MovieController;
+use TinyMediaCenter\API\Controller\Category\ShowController;
+use TinyMediaCenter\API\Controller\CategoryController;
+use TinyMediaCenter\API\Controller\SetupController;
+use TinyMediaCenter\API\Service\MovieService;
+use TinyMediaCenter\API\Service\ShowService;
 
 $app = new Slim\App();
 
@@ -32,369 +38,80 @@ $app->add(function (Request $request, Response $response, callable $next) {
 });
 
 $config = API\Util::readJSONFile("config.json");
-$db = [
-    "host"     => $config["dbHost"],
-    "name"     => $config["dbName"],
-    "user"     => $config["dbUser"],
-    "password" => $config["dbPassword"],
-];
+$configModel = new API\Model\ConfigModel($config);
+$dbModel = $configModel->getDbModel();
+
+$container['db'] = $dbModel;
+$container['config'] = $config;
+
+$showService = new ShowService(
+    $configModel->getPathShows(),
+    $configModel->getAliasShows(),
+    $dbModel,
+    $configModel->getTtvdbApiKey()
+);
+$container['show_service'] = $showService;
+
+$movieService = new MovieService(
+    $configModel->getPathMovies(),
+    $configModel->getAliasMovies(),
+    $dbModel,
+    $configModel->getTmdbApiKey()
+);
+$container['movie_service'] = $movieService;
 
 $app->get('/', function () {
     echo "nothing to see here";
 });
 
-$app->get(
-    '/config/',
-    function () {
-        $file = "config.json";
-        if (!file_exists($file)) {
-            $file = "example_config.json";
-        }
-        $config = API\Util::readJSONFile($file);
-        echo json_encode($config);
-    }
-);
+$app
+    ->group(
+        '/config',
+        function () {
+            $this->map(['GET', 'POST'], '/', SetupController::class.':indexAction');
 
-$app->get(
-    '/config/check/{type}/',
-    function (Request $request, Response $response, $type) {
-        if ($type === "db") {
-            $res = [];
-            try {
-                $res["dbAccess"] = "Ok";
-                $db = [
-                    "host"     => $_GET["host"],
-                    "name"     => $_GET["name"],
-                    "user"     => $_GET["user"],
-                    "password" => $_GET["password"],
-                ];
-                $showStore   = new API\ShowStoreDB($db);
-                $checkShows  = $showStore->checkSetup();
-                $movieStore  = new API\MovieStoreDB($db, "", "");
-                $checkMovies = $movieStore->checkSetup();
+            $this->get('/check/{type}/', SetupController::class.':checkAction');
 
-                if ($checkShows && $checkMovies) {
-                    $res["dbSetup"] = "Ok";
-                } else {
-                    $res["dbSetup"] = "Error";
-                }
-            } catch (PDOException $e) {
-                $res["dbAccess"] = "Error: ".$e->getMessage();
-                $res["dbSetup"]  = "Error";
-            }
-            echo json_encode($res);
-        }
-        if ($type === "movies") {
-            if (is_dir($_GET["pathMovies"])
-                and is_writable($_GET["pathMovies"])
-                and API\Util::checkUrl($_GET["aliasMovies"])
-            ) {
-                $res["result"]  = "Ok";
-                $folders        = API\Util::getFolders($_GET["pathMovies"]);
-                $res["folders"] = $folders;
-            } else {
-                $res["result"] = "Error";
-            }
-            echo json_encode($res);
-        }
-        if ($type === "shows") {
-            if (is_dir($_GET["pathShows"])
-                and is_writable($_GET["pathShows"])
-                and API\Util::checkUrl($_GET["aliasShows"])
-            ) {
-                $res["result"]  = "Ok";
-                $folders        = API\Util::getFolders($_GET["pathShows"]);
-                $res["folders"] = $folders;
-            } else {
-                $res["result"] = "Error";
-            }
-            echo json_encode($res);
-        }
-    }
-);
-
-$app->post(
-    '/config/',
-    function (Request $request, Response $response) use ($app) {
-        $config = [
-            "pathMovies"  => $_POST["pathMovies"],
-            "aliasMovies" => $_POST["aliasMovies"],
-            "pathShows"   => $_POST["pathShows"],
-            "aliasShows"  => $_POST["aliasShows"],
-            "dbHost"      => $_POST["dbHost"],
-            "dbName"      => $_POST["dbName"],
-            "dbUser"      => $_POST["dbUser"],
-            "dbPassword"  => $_POST["dbPassword"],
-            "TMDBApiKey"  => $_POST["TMDBApiKey"],
-            "TTVDBApiKey" => $_POST["TTVDBApiKey"],
-        ];
-
-        API\Util::writeJSONFile("config.json", $config);
-
-        return $response->withRedirect('/install/');
-    }
-);
-
-$app->post(
-    '/config/db/',
-    function () use ($db) {
-        try {
-            $showStore   = new API\ShowStoreDB($db);
-            $checkShows  = $showStore->checkSetup();
-            $movieStore  = new API\MovieStoreDB($db, "", "");
-            $checkMovies = $movieStore->checkSetup();
-
-            if (!$checkShows && !$checkMovies) {
-                $showStore->setupDB();
-                $movieStore->setupDB();
-                echo "Ok";
-            } else {
-                echo "Error";
-            }
-        } catch (Exception $e) {
-            echo API\Util::handleException($e);
-        }
-    }
-);
-
-$app->get(
-    '/categories/',
-    function () use ($config, $db) {
-        //expects tv shows to be in sub folders of $config["pathShows"]
-        //where each sub folder will be listed as a different category
-
-        //expects movies to be directly in $config["pathMovies"]
-        //which will be listed as a single category
-        //TODO: make this consistent and/or more flexible
-        $showController = new API\ShowController(
-            $config["pathShows"],
-            $config["aliasShows"],
-            $db,
-            $config["TTVDBApiKey"]
-        );
-        $shows = $showController->getCategories();
-
-        $movieController = new API\MovieController(
-            $config["pathMovies"],
-            $config["aliasMovies"],
-            $db,
-            $config["TMDBApiKey"]
-        );
-        $movies     = $movieController->getCategories();
-        $categories = [
-            'shows' => $shows,
-            'movies' => $movies,
-        ];
-
-        echo json_encode($categories);
-    }
-);
-
-$app->group('/shows', function () use ($app, $config, $db) {
-
-    $showController = new API\ShowController(
-        $config["pathShows"],
-        $config["aliasShows"],
-        $db,
-        $config["TTVDBApiKey"]
-    );
-
-    $app->post(
-        '/maintenance/',
-        function () use ($showController) {
-            try {
-                $result = $showController->updateData();
-                echo json_encode($result);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
+            $this->post('/db/', SetupController::class.':setupDBAction');
         }
     );
 
-    $app->get(
-        '/{category}/',
-        function (Request $request, Response $response, $category) use ($showController) {
-            try {
-                $list = $showController->getList($category);
-                echo json_encode($list);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
+$app
+    ->group(
+        '/categories',
+        function () {
+            $this->get('/', CategoryController::class.':indexAction');
         }
     );
 
-    $app->get(
-        '/{category}/episodes/{id}/',
-        function (Request $request, Response $response, $category, $id) use ($showController) {
-            try {
-                $description = $showController->getEpisodeDescription($category, $id);
-                echo json_encode($description);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
+$app
+    ->group(
+        '/shows',
+        function () {
+            $this->post('/maintenance/', ShowController::class.':maintenanceAction');
+
+            $this->get('/{category}/', ShowController::class.':indexAction');
+            $this->get('/{category}/episodes/{episode}/', ShowController::class.':episodesAction');
+            $this->get('/{category}/{show}/', ShowController::class.':detailsAction');
+            $this->post('/{category}/edit/{show}/', ShowController::class.':editAction');
         }
     );
 
-    $app->get(
-        '/{category}/{id}/',
-        function (Request $request, Response $response, $category, $id) use ($showController) {
-            try {
-                $details = $showController->getDetails($category, $id);
-                echo json_encode($details);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
+$app
+    ->group(
+        '/movies',
+        function () {
+            $this->post('/maintenance/', MovieController::class.':maintenanceAction');
+
+            $this->get('/lookup/{id}/', MovieController::class.':lookupAction');
+
+            $this->get('/{category}/', MovieController::class.':indexAction');
+            $this->get('/{category}/genres/', MovieController::class.':genresAction');
+            $this->get('/{category}/compilations/', MovieController::class.':compilationsAction');
+
+            $this->get('/{category}/{id}/', MovieController::class.':detailsAction');
+            $this->post('/{category}/{id}/', MovieController::class.':editAction');
         }
     );
-
-    $app->post(
-        '/{category}/edit/{id}/',
-        function (Request $request, Response $response, $category, $id) use ($showController) {
-            try {
-                $tvdbid = (int) $_POST["tvdbId"];
-                echo $showController->updateDetails($category, $id, $_POST["title"], $tvdbid, $_POST["lang"]);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
-        }
-    );
-});
-
-$app->group('/movies', function () use ($app, $config, $db) {
-
-    $movieController = new API\MovieController(
-        $config["pathMovies"],
-        $config["aliasMovies"],
-        $db,
-        $config["TMDBApiKey"]
-    );
-
-    $app->get(
-        '/{category}/',
-        function (Request $request, Response $response, $category) use ($movieController) {
-            try {
-                $orgSort = API\Util::initGET("sort", "name_asc");
-                $split   = explode("_", $orgSort);
-                $sort    = $split[0];
-                $order   = $split[1];
-
-                $filter     = API\Util::initGET("filter");
-                $genre      = API\Util::initGET("genre");
-                $cnt        = API\Util::initGET("cnt", -1, true);
-                $offset     = API\Util::initGET("offset", 0, true);
-                $collection = API\Util::initGET("collection", 0, true);
-                $list       = API\Util::initGET("list", 0, true);
-
-                if ($collection > 0) {
-                    $movieList = $movieController->getMoviesForCollection($category, $collection, $cnt, $offset);
-                } elseif ($list > 0) {
-                    $movieList = $movieController->getMoviesForList($category, $list, $cnt, $offset);
-                } else {
-                    $movieList = $movieController->getMovies($category, $sort, $order, $filter, $genre, $cnt, $offset);
-                }
-
-                echo json_encode($movieList);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
-        }
-    );
-
-    $app->get(
-        '/{category}/genres/',
-        function (Request $request, Response $response, $category) use ($movieController) {
-            try {
-                $genres = $movieController->getGenres($category);
-
-                $resp = [];
-                $comp = API\Util::initGET("term");
-                $comp = mb_strtolower($comp);
-                $l    = strlen($comp);
-                foreach ($genres as $gen) {
-                    if (substr(mb_strtolower($gen), 0, $l) === $comp) {
-                        $resp[] = $gen;
-                    }
-                }
-
-                echo json_encode($resp);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
-        }
-    );
-
-    $app->get(
-        '/{category}/compilations/',
-        function (Request $request, Response $response, $category) use ($movieController) {
-            try {
-                $lists       = $movieController->getLists($category);
-                $collections = $movieController->getCollections($category);
-                $comp = [
-                    "lists"       => $lists,
-                    "collections" => $collections,
-                ];
-
-                echo json_encode($comp);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
-        }
-    );
-
-    $app->post(
-        '/maintenance/',
-        function () use ($movieController) {
-            try {
-                $result = $movieController->updateData();
-
-                echo json_encode($result);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
-        }
-    );
-
-    $app->get(
-        '/lookup/{id}/',
-        function (Request $request, Response $response, $id) use ($movieController) {
-            try {
-                $id = intval($id, 10);
-                $details = $movieController->lookupMovie($id);
-
-                echo json_encode($details);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
-        }
-    );
-
-    $app->get(
-        '/{category}/{id}/',
-        function (Request $request, Response $response, $category, $id) use ($movieController) {
-            try {
-                $id      = intval($id, 10);
-                $details = $movieController->getMovieDetails($category, $id);
-
-                echo json_encode($details);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
-        }
-    );
-
-    $app->post(
-        '/{category}/{id}/',
-        function (Request $request, Response $response, $category, $id) use ($movieController) {
-            try {
-                $id  = intval($id, 10);
-                $res = $movieController->updateFromScraper($category, $id, $_POST["movieDbId"], $_POST["filename"]);
-
-                return json_encode($res);
-            } catch (Exception $e) {
-                echo API\Util::handleException($e);
-            }
-        }
-    );
-});
 
 $app->run();

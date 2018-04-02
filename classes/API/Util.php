@@ -1,4 +1,5 @@
 <?php
+
 namespace TinyMediaCenter\API;
 
 /**
@@ -6,23 +7,6 @@ namespace TinyMediaCenter\API;
  */
 class Util
 {
-
-    /**
-     * @param string $pattern
-     * @param int    $flags
-     *
-     * @return array
-     */
-    public static function globRecursive($pattern, $flags = 0)
-    {
-        $files = glob($pattern, $flags);
-        foreach (glob(dirname($pattern).'/*', GLOB_ONLYDIR | GLOB_NOSORT) as $dir) {
-            $files = array_merge($files, Util::globRecursive($dir.'/'.basename($pattern), $flags));
-        }
-
-        return $files;
-    }
-
     /**
      * @param string $file
      *
@@ -187,56 +171,6 @@ class Util
     }
 
     /**
-     * @param string $sourceImagePath
-     * @param string $thumbnailImagePath
-     * @param int    $width
-     * @param int    $height
-     *
-     * @return bool
-     */
-    public static function resizeImage($sourceImagePath, $thumbnailImagePath, $width, $height)
-    {
-        if (file_exists($thumbnailImagePath)) {
-            return true;
-        }
-        list($sourceImageWidth, $sourceImageHeight, $sourceImageType) = getimagesize($sourceImagePath);
-        $sourceGdImage = false;
-        switch ($sourceImageType) {
-            case IMAGETYPE_GIF:
-                $sourceGdImage = imagecreatefromgif($sourceImagePath);
-                break;
-            case IMAGETYPE_JPEG:
-                $sourceGdImage = imagecreatefromjpeg($sourceImagePath);
-                break;
-            case IMAGETYPE_PNG:
-                $sourceGdImage = imagecreatefrompng($sourceImagePath);
-                break;
-        }
-        if ($sourceGdImage === false) {
-            return false;
-        }
-        $sourceAspectRatio = $sourceImageWidth / $sourceImageHeight;
-        $thumbnailAspectRatio = $width / $height;
-        if ($sourceImageWidth <= $width && $sourceImageHeight <= $height) {
-            $thumbnailImageWidth = $sourceImageWidth;
-            $thumbnailImageHeight = $sourceImageHeight;
-        } elseif ($thumbnailAspectRatio > $sourceAspectRatio) {
-            $thumbnailImageWidth = (int) ($height * $sourceAspectRatio);
-            $thumbnailImageHeight = $height;
-        } else {
-            $thumbnailImageWidth = $width;
-            $thumbnailImageHeight = (int) ($width / $sourceAspectRatio);
-        }
-        $thumbnailGdImage = imagecreatetruecolor($thumbnailImageWidth, $thumbnailImageHeight);
-        imagecopyresampled($thumbnailGdImage, $sourceGdImage, 0, 0, 0, 0, $thumbnailImageWidth, $thumbnailImageHeight, $sourceImageWidth, $sourceImageHeight);
-        imagejpeg($thumbnailGdImage, $thumbnailImagePath, 90);
-        imagedestroy($sourceGdImage);
-        imagedestroy($thumbnailGdImage);
-
-        return true;
-    }
-
-    /**
      * @param string $path
      * @param array  $exclude
      *
@@ -280,35 +214,5 @@ class Util
         curl_close($ch);
 
         return ($httpCode < 400);
-    }
-
-    /**
-     * @param string $var
-     * @param string $default
-     * @param bool   $toInt
-     *
-     * @return int|string
-     */
-    public static function initGET($var, $default = "", $toInt = false)
-    {
-        $res = isset($_GET[$var]) ? $_GET[$var] : $default;
-        $res = trim($res);
-        if ($toInt) {
-            $res = intval($res, 10);
-        }
-
-        return $res;
-    }
-
-    /**
-     * @param \Exception $exception
-     *
-     * @return string
-     */
-    public static function handleException(\Exception $exception)
-    {
-        $error = ["error" => $exception->getMessage(), "trace" => $exception->getTrace()];
-
-        return json_encode($error);
     }
 }

@@ -1,5 +1,9 @@
 <?php
-namespace TinyMediaCenter\API;
+
+namespace TinyMediaCenter\API\Service\Store;
+
+use TinyMediaCenter\API\Model\DBModel;
+use TinyMediaCenter\API\Service\AbstractStore;
 
 /**
  * Class MovieStoreDB
@@ -9,12 +13,12 @@ class MovieStoreDB extends AbstractStore
     /**
      * MovieStoreDB constructor.
      *
-     * @param array $config
+     * @param DBModel $dbModel
      */
-    public function __construct($config)
+    public function __construct(DBModel $dbModel)
     {
         $tables = array("movies", "lists", "list_parts", "collections", "collection_parts");
-        parent::__construct($config, $tables);
+        parent::__construct($dbModel, $tables);
     }
 
     /**

@@ -1,10 +1,11 @@
 <?php
-namespace TinyMediaCenter\API;
+
+namespace TinyMediaCenter\API\Model;
 
 /**
  * Class Movie.
  */
-class Movie
+class MovieModel
 {
     private $filename;
     private $title;
@@ -30,6 +31,7 @@ class Movie
     public function __construct($movieData, $movieDir)
     {
         $this->movieDir = $movieDir;
+
         if (count($movieData) > 0) {
             $this->filename = $movieData["filename"];
             $this->title = $movieData["title"];
@@ -43,15 +45,18 @@ class Movie
             $this->genres = $movieData["genres"];
             $this->director = $movieData["director"];
             $this->collectionId = $movieData["collection_id"];
-            $this->actors = array();
+            $this->actors = [];
+
             foreach ($movieData["actors"] as $act) {
                 $this->actors[] = str_replace(" ", "&nbsp;", $act);
             }
+
             if (isset($movieData["info"])) {
                 $this->info = $movieData["info"];
             } else {
                 $this->info = "";
             }
+
             $this->empty = false;
         } else {
             $this->empty = true;
@@ -145,7 +150,8 @@ class Movie
      */
     public function getActors($limit = 0)
     {
-        $res = array();
+        $res = [];
+
         if ($limit > 0) {
             foreach ($this->actors as $actor) {
                 $limit--;
@@ -248,20 +254,25 @@ class Movie
             $fileInfo = $getID3->analyze($this->movieDir.$this->filename);
             $duration = $fileInfo["playtime_string"];
             $tmp = substr($fileInfo["playtime_string"], 0, strrpos($duration, ":"));
+
             if (strpos($tmp, ":") !== false) {
                 $duration = $tmp;
             } else {
                 $duration = "0:".$tmp;
             }
+
             $duration .= "&nbsp;h";
             $resolution = $fileInfo["video"]["resolution_x"]."&nbsp;x&nbsp;".$fileInfo["video"]["resolution_y"];
             $sound = $fileInfo["audio"]["channels"];
+
             if ($sound === 2) {
                 $sound = "Stereo";
             }
+
             if ($sound === "5.1") {
                 $sound = "DD&nbsp;5.1";
             }
+
             $this->info = $duration.", ".$resolution.", ".$sound;
         }
 

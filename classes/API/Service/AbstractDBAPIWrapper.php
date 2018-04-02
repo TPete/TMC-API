@@ -1,5 +1,6 @@
 <?php
-namespace TinyMediaCenter\API;
+
+namespace TinyMediaCenter\API\Service;
 
 /**
  * Class AbstractDBAPIWrapper

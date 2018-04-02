@@ -1,6 +1,9 @@
 <?php
 
-namespace TinyMediaCenter\API;
+namespace TinyMediaCenter\API\Service\MediaLibrary;
+
+use TinyMediaCenter\API\Exception\ScrapeException;
+use TinyMediaCenter\API\Service\AbstractDBAPIWrapper;
 
 /**
  * Class TTVDBWrapper

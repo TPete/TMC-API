@@ -1,6 +1,10 @@
 <?php
 
-namespace TinyMediaCenter\API;
+namespace TinyMediaCenter\API\Service\MediaLibrary;
+
+use TinyMediaCenter\API\Exception\ScrapeException;
+use TinyMediaCenter\API\Model\MovieModel;
+use TinyMediaCenter\API\Service\AbstractDBAPIWrapper;
 
 /**
  * Class TMDBWrapper
@@ -66,7 +70,7 @@ class TMDBWrapper extends AbstractDBAPIWrapper
      *
      * @throws ScrapeException
      *
-     * @return Movie
+     * @return MovieModel
      */
     public function getMovieInfo($id, $movieDir = "", $filename = "")
     {
@@ -117,7 +121,7 @@ class TMDBWrapper extends AbstractDBAPIWrapper
                 "original_title" => $data["original_title"],
             ];
 
-            $mov = new Movie($movieData, $movieDir);
+            $mov = new MovieModel($movieData, $movieDir);
 
             return $mov;
         }
@@ -138,7 +142,7 @@ class TMDBWrapper extends AbstractDBAPIWrapper
      *
      * @throws ScrapeException
      *
-     * @return Movie|null
+     * @return MovieModel|null
      */
     public function searchMovie($title, $filename, $path)
     {

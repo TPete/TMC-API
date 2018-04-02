@@ -1,10 +1,18 @@
 <?php
-namespace TinyMediaCenter\API;
+
+namespace TinyMediaCenter\API\Service;
+
+use TinyMediaCenter\API\Exception\ScrapeException;
+use TinyMediaCenter\API\Model\DBModel;
+use TinyMediaCenter\API\Model\MovieModel;
+use TinyMediaCenter\API\Service\MediaLibrary\TMDBWrapper;
+use TinyMediaCenter\API\Service\Store\MovieStoreDB;
+use TinyMediaCenter\API\Util;
 
 /**
- * Class MovieController
+ * Class MovieService
  */
-class MovieController extends AbstractController
+class MovieService extends AbstractCategoryService
 {
 
     const DEFAULT_CATEGORY = "Filme";
@@ -22,15 +30,15 @@ class MovieController extends AbstractController
     /**
      * MovieController constructor.
      *
-     * @param string $path
-     * @param string $alias
-     * @param string $dbConfig
-     * @param string $apiKey
+     * @param string  $path
+     * @param string  $alias
+     * @param DBModel $dbModel
+     * @param string  $apiKey
      */
-    public function __construct($path, $alias, $dbConfig, $apiKey)
+    public function __construct($path, $alias, DBModel $dbModel, $apiKey)
     {
         $scraper = new TMDBWrapper($apiKey);
-        $store = new MovieStoreDB($dbConfig);
+        $store = new MovieStoreDB($dbModel);
         parent::__construct($path, $alias, $store, $scraper);
         $this->categoryNames = $this->getCategoryNames();
     }
@@ -40,8 +48,9 @@ class MovieController extends AbstractController
      */
     public function getCategories()
     {
-        $categories = array();
+        $categories = [];
         $names = $this->categoryNames;
+
         foreach ($names as $name) {
             $categories["movies/".$name."/"] = $name;
         }
@@ -171,6 +180,7 @@ class MovieController extends AbstractController
      */
     public function lookupMovie($id)
     {
+        /* @var MovieModel $movie */
         $movie = $this->scraper->getMovieInfo($id);
 
         return $movie->toArray();
@@ -212,12 +222,12 @@ class MovieController extends AbstractController
     public function updateData()
     {
         $protocol = "";
-        $categories = $this->categoryNames;
-        foreach ($categories as $category) {
+
+        foreach ($this->categoryNames as $category) {
             $protocol .= $this->maintenance($category);
         }
 
-        return array("result" => "Ok", "protocol" => $protocol);
+        return ["result" => "Ok", "protocol" => $protocol];
     }
 
     /**
@@ -232,18 +242,21 @@ class MovieController extends AbstractController
         $path = $this->getCategoryPath($category);
         $pp = $this->getPicturePath($category);
         $res = $this->checkDuplicateFiles($path);
+
         foreach ($res as $movie) {
             $protocol .= $movie."<br>";
         }
+
         $protocol .= "<h2>Duplicate movie entries</h2>";
         $res = $this->store->checkDuplicates($category);
+
         foreach ($res as $movie) {
             $protocol .= $movie."<br>";
         }
 
         $missing = $this->store->checkExisting($category, $path);
-
         $protocol .= "<h2>Missing movie entries (new movies)</h2>";
+
         foreach ($missing as $filename) {
             $title = $this->getMovieTitle($filename);
             $protocol .= $title." (File: ".$filename.")<br>";
@@ -256,6 +269,7 @@ class MovieController extends AbstractController
 
         $protocol .= "<h2>Missing collection entries</h2>";
         $res = $this->store->checkCollections($category);
+
         foreach ($res["missing"] as $miss) {
             $col = $this->updateCollectionFromScraper($category, $miss);
             $protocol .= $col;
@@ -263,6 +277,7 @@ class MovieController extends AbstractController
         }
 
         $protocol .= "<h2>Obsolete collection entries</h2>";
+
         foreach ($res["obsolete"] as $obs) {
             $protocol .= $obs;
             $protocol .= $this->removeObsoleteCollection($obs);
@@ -271,10 +286,12 @@ class MovieController extends AbstractController
 
         $protocol .= "<h2>Fetching missing Movie Pics</h2>";
         $res = $this->store->getMissingPics($category, $pp);
+
         foreach ($res["missing"] as $miss) {
             $protocol .= "fetching ".$miss["MOVIE_DB_ID"]."<br>";
             $protocol .= $this->downloadMoviePic($pp, $miss["MOVIE_DB_ID"]);
         }
+
         $protocol .= "<h2>Remove obsolete Movie Pics</h2>";
         $protocol .= $this->removeObsoletePics($res["all"], $pp);
 
@@ -289,12 +306,14 @@ class MovieController extends AbstractController
      */
     private function getCategoryNames()
     {
-        $folders = Util::getFolders($this->path, array("pictures"));
-        $categories = array(MovieController::DEFAULT_CATEGORY);
+        $folders = Util::getFolders($this->path, ["pictures"]);
+        $categories = [MovieService::DEFAULT_CATEGORY];
         $this->useDefault = true;
+
         if (count($folders) > 0) {
             $this->useDefault = false;
-            $categories = array();
+            $categories = [];
+
             foreach ($folders as $folder) {
                 $categories[] = $folder;
             }
@@ -312,6 +331,7 @@ class MovieController extends AbstractController
     private function addPosterEntry($category, $movies)
     {
         $alias = $this->getCategoryAlias($category);
+
         foreach ($movies as &$movie) {//call by reference
             $movie["poster"] = $alias."pictures/".$movie["movie_db_id"]."_333x500.jpg";
             $movie["filename"] = $alias.$movie["filename"];
@@ -329,6 +349,7 @@ class MovieController extends AbstractController
     private function getCategory($base, $category)
     {
         $path = $base;
+
         if (!$this->useDefault) {
             $path .= $category."/";
         }
@@ -370,9 +391,9 @@ class MovieController extends AbstractController
     }
 
     /**
-     * @param string $category
-     * @param Movie  $movie
-     * @param string $localId
+     * @param string     $category
+     * @param MovieModel $movie
+     * @param string     $localId
      *
      * @return string
      */
@@ -421,6 +442,7 @@ class MovieController extends AbstractController
             if ($movie === "") {
                 $movie = $this->scraper->getMovieInfo($id);
             }
+
             if ($movie !== null) {
                 $this->scraper->downloadPoster($id, $movie->getPosterPath(), $picturePath);
 
@@ -440,8 +462,9 @@ class MovieController extends AbstractController
      */
     private function resizeMoviePics($picsDir)
     {
-        $images = Util::globRecursive($picsDir."*big.jpg");
+        $images = $this->globRecursive($picsDir."*big.jpg");
         $protocol = "";
+
         foreach ($images as $image) {
             $id = substr($image, strrpos($image, "/") + 1);
             $id = substr($id, 0, strpos($id, "_"));
@@ -452,8 +475,9 @@ class MovieController extends AbstractController
             if (file_exists($target)) {
                 continue;
             }
+
             $protocol .= $dest." - ".$target."<br>";
-            Util::resizeImage($dest, $target, 333, 500);
+            $this->resizeImage($dest, $target, 333, 500);
         }
 
         return $protocol;
@@ -470,15 +494,18 @@ class MovieController extends AbstractController
         $files = glob($picsDir."*_big.jpg");
 
         $protocol = "";
+
         foreach ($files as $file) {
             $id = substr($file, strlen($picsDir));
             $id = substr($id, 0, strpos($id, "_"));
+
             if (in_array($id, $movieDBIDS)) {
                 continue;
             } else {
                 $protocol .= "removing ".$id."<br>";
                 unlink($file);
                 $small = $picsDir.$id."_333x500.jpg";
+
                 if (file_exists($small)) {
                     unlink($small);
                 }
@@ -496,13 +523,16 @@ class MovieController extends AbstractController
     private function checkDuplicateFiles($path)
     {
         $files = glob($path."*.avi");
-        $titles = array();
+        $titles = [];
+
         foreach ($files as $file) {
             $titles[] = $this->getMovieTitle($file);
         }
+
         $cnts = array_count_values($titles);
         arsort($cnts);
-        $result = array();
+        $result = [];
+
         foreach ($cnts as $title => $cnt) {
             if ($cnt > 1) {
                 $result[] = $title;

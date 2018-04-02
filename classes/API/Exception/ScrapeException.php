@@ -1,6 +1,6 @@
 <?php
 
-namespace TinyMediaCenter\API;
+namespace TinyMediaCenter\API\Exception;
 
 /**
  * Class ScrapeException

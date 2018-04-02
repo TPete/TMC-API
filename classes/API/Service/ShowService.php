@@ -1,11 +1,17 @@
 <?php
 
-namespace TinyMediaCenter\API;
+namespace TinyMediaCenter\API\Service;
+
+use TinyMediaCenter\API\Exception\ScrapeException;
+use TinyMediaCenter\API\Model\DBModel;
+use TinyMediaCenter\API\Service\MediaLibrary\TTVDBWrapper;
+use TinyMediaCenter\API\Service\Store\ShowStoreDB;
+use TinyMediaCenter\API\Util;
 
 /**
- * Class ShowController
+ * Class ShowService
  */
-class ShowController extends AbstractController
+class ShowService extends AbstractCategoryService
 {
 
     const DEFAULT_CATEGORY = "Serien";
@@ -23,14 +29,14 @@ class ShowController extends AbstractController
     /**
      * ShowController constructor.
      *
-     * @param string $path
-     * @param string $alias
-     * @param string $dbConfig
-     * @param string $apiKey
+     * @param string  $path
+     * @param string  $alias
+     * @param DBModel $dbModel
+     * @param string  $apiKey
      */
-    public function __construct($path, $alias, $dbConfig, $apiKey)
+    public function __construct($path, $alias, DBModel $dbModel, $apiKey)
     {
-        $store = new ShowStoreDB($dbConfig);
+        $store = new ShowStoreDB($dbModel);
         $scraper = new TTVDBWrapper($apiKey);
         parent::__construct($path, $alias, $store, $scraper);
         $this->categoryNames = $this->getCategoryNames();
@@ -41,9 +47,9 @@ class ShowController extends AbstractController
      */
     public function getCategories()
     {
-        $categories = array();
-        $names = $this->categoryNames;
-        foreach ($names as $name) {
+        $categories = [];
+
+        foreach ($this->categoryNames as $name) {
             $categories["shows/".$name."/"] = $name;
         }
 
@@ -58,8 +64,9 @@ class ShowController extends AbstractController
     public function getList($category)
     {
         $overview = $this->store->getShows($category);
-        $result = array();
+        $result = [];
         $path = $this->getCategoryAlias($category);
+
         foreach ($overview as $show) {
             $result[] = [
                 "folder" => $show["folder"],
@@ -86,44 +93,50 @@ class ShowController extends AbstractController
         $base .= $id."/";
         $files = glob($base."*.avi");
 
-        $episodesArray = array();
-        $season = array();
+        $episodesArray = [];
+        $season = [];
         $current = 0;
+
         foreach ($episodesData as $ep) {
             if ($current !== $ep["season_no"]) {
                 if ($current > 0) {
                     $episodesArray["Staffel ".$current] = $season;
                 }
                 $current = $ep["season_no"];
-                $season = array();
+                $season = [];
             }
-            $season[$ep["episode_no"]] = array("title" => $ep["title"], "id" => $ep["id"]);
+            $season[$ep["episode_no"]] = ["title" => $ep["title"], "id" => $ep["id"]];
         }
+
         $episodesArray["Staffel ".$current] = $season;
 
-        $showData = array();
-        $seasonData = array();
+        $showData = [];
+        $seasonData = [];
         $seasonNo = 0;
         $lastSeason = "";
+
         foreach ($episodesArray as $season => $episodes) {
             if (count($seasonData) > 0) {
-                $showData[] = array("title" => $lastSeason, "episodes" => $seasonData);
+                $showData[] = ["title" => $lastSeason, "episodes" => $seasonData];
             }
             $lastSeason = $season;
-            $seasonData = array();
+            $seasonData = [];
             $seasonNo++;
             $episodeNo = 0;
+
             foreach ($episodes as $episode) {
                 $episodeNo++;
                 $link = $this->getFileLink($seasonNo, $episodeNo, $files, $this->path);
                 $label = sprintf("%02d", $episodeNo)." - ".$episode["title"];
+
                 if ($link !== false) {
-                    $seasonData[] = array("link" => $this->alias.$link, "label" => $label, "id" => $episode["id"]);
+                    $seasonData[] = ["link" => $this->alias.$link, "label" => $label, "id" => $episode["id"]];
                 } else {
-                    $seasonData[] = array("link" => "", "label" => $label, "id" => $episode["id"]);
+                    $seasonData[] = ["link" => "", "label" => $label, "id" => $episode["id"]];
                 }
             }
         }
+
         if (count($seasonData) > 0) {
             $showData[] = ["title" => $lastSeason, "episodes" => $seasonData];
         }
@@ -161,21 +174,26 @@ class ShowController extends AbstractController
     public function updateDetails($category, $folder, $title, $tvdbId, $lang)
     {
         $oldId = $this->store->updateDetails($category, $folder, $title, $tvdbId, $lang);
+
         if ($oldId !== $tvdbId) {
             $path = $this->getCategoryPath($category);
             $path .= $folder."/bg.jpg";
+
             if (file_exists($path)) {
                 unlink($path);
             }
+
             $path = $this->getCategoryPath($category);
             $path .= $folder."/thumb.jpg";
+
             if (file_exists($path)) {
                 unlink($path);
             }
-            $shows = array();
+
+            $shows = [];
             $shows[] = $this->store->getShowDetails($category, $folder);
             $this->updateEpisodes($category, $shows);
-            $this->updateThumbs($category, array($folder));
+            $this->updateThumbs($category, [$folder]);
         }
     }
 
@@ -185,13 +203,12 @@ class ShowController extends AbstractController
     public function updateData()
     {
         $protocol = "";
-        $categories = $this->categoryNames;
 
-        foreach ($categories as $category) {
+        foreach ($this->categoryNames as $category) {
             $protocol .= $this->maintenance($category);
         }
 
-        return array("result" => "Ok", "protocol" => $protocol);
+        return ["result" => "Ok", "protocol" => $protocol];
     }
 
     /**
@@ -213,16 +230,20 @@ class ShowController extends AbstractController
         $folders = Util::getFolders($this->path);
         $sub = Util::getFolders($this->path.$folders[0]."/");
         $this->useDefault = true;
+
         if (count($sub) > 0) {
             $files = glob($this->path.$folders[0]."/".$sub[0]."/*.avi");
+
             if (count($files) > 0) {
                 $this->useDefault = false;
             }
         }
+
         if ($this->useDefault) {
-            $categories = array(ShowController::DEFAULT_CATEGORY);
+            $categories = [ShowService::DEFAULT_CATEGORY];
         } else {
-            $categories = array();
+            $categories = [];
+
             foreach ($folders as $folder) {
                 $categories[] = $folder;
             }
@@ -240,6 +261,7 @@ class ShowController extends AbstractController
     private function getCategory($base, $category)
     {
         $path = $base;
+
         if (!$this->useDefault) {
             $path .= $category."/";
         }
@@ -314,8 +336,8 @@ class ShowController extends AbstractController
     private function addMissingShows($category)
     {
         $protocol = "";
-        $folders = $this->getFolders($category);
-        foreach ($folders as $folder) {
+
+        foreach ($this->getFolders($category) as $folder) {
             $protocol .= $this->store->createIfMissing($category, $folder);
         }
 
@@ -343,23 +365,29 @@ class ShowController extends AbstractController
     private function updateEpisodes($category, $shows)
     {
         $protocol = "";
+
         foreach ($shows as $show) {
             try {
                 $protocol .= "Updating ".$show["title"]." ... ";
+
                 if ($show["tvdb_id"] === null) {
                     $search = urlencode($show["title"]);
                     $id = $this->scraper->getSeriesId($search);
                     $this->store->updateDetails($category, $show["folder"], $show["title"], $id, $show["lang"]);
                     $show = $this->store->getShowDetails($category, $show["folder"]);
                 }
+
                 $path = $this->getCategoryPath($category);
                 $path .= $show["folder"]."/bg.jpg";
+
                 if (!file_exists($path)) {
                     $protocol .= "Getting bakground image ... ";
                     $this->scraper->downloadBG($show["tvdb_id"], $path);
                 }
+
                 $protocol .= "Scraping ... ";
                 $seasons = $this->scraper->getSeriesInfoById($show["tvdb_id"], $show["ordering_scheme"], $show["lang"]);
+
                 if (count($seasons) > 0) {
                     $this->store->updateEpisodes($show["id"], $seasons);
                     $protocol .= "Done";
@@ -386,18 +414,21 @@ class ShowController extends AbstractController
     {
         $protocol = "";
         $basePath = $this->getCategoryPath($category);
+
         foreach ($folders as $folder) {
             $path = $basePath.$folder."/";
             $protocol .= $path;
             $dim = 512;
+
             if (!file_exists($path."thumb.jpg")) {
                 if (file_exists($path."bg.jpg")) {
-                    Util::resizeImage($path."bg.jpg", $path."thumb.jpg", $dim, $dim);
+                    $this->resizeImage($path."bg.jpg", $path."thumb.jpg", $dim, $dim);
                     $protocol .= "done";
                 } else {
                     $protocol .= "Failed to create thumbnail: no background image.";
                 }
             }
+
             $protocol .= "<br>";
         }
 
@@ -417,6 +448,7 @@ class ShowController extends AbstractController
         if (strlen($episodeNo) === 1) {
             $episodeNo = "0".$episodeNo;
         }
+
         foreach ($files as $file) {
             if (strpos($file, "_".$seasonNo."x".$episodeNo) !== false) {
                 $link = str_replace($baseDir, "", $file);

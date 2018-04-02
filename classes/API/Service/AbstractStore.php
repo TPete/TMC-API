@@ -1,5 +1,8 @@
 <?php
-namespace TinyMediaCenter\API;
+
+namespace TinyMediaCenter\API\Service;
+
+use TinyMediaCenter\API\Model\DBModel;
 
 /**
  * Class AbstractStore
@@ -7,24 +10,9 @@ namespace TinyMediaCenter\API;
 abstract class AbstractStore
 {
     /**
-     * @var string
+     * @var DBModel
      */
-    private $host;
-
-    /**
-     * @var string
-     */
-    private $db;
-
-    /**
-     * @var string
-     */
-    private $user;
-
-    /**
-     * @var string
-     */
-    private $password;
+    private $dbModel;
 
     /**
      * @var array
@@ -34,15 +22,12 @@ abstract class AbstractStore
     /**
      * Store constructor.
      *
-     * @param array $config
-     * @param array $tables
+     * @param DBModel $dbModel
+     * @param array   $tables
      */
-    public function __construct($config, $tables)
+    public function __construct(DBModel $dbModel, $tables)
     {
-        $this->host = $config["host"];
-        $this->db = $config["name"];
-        $this->user = $config["user"];
-        $this->password = $config["password"];
+        $this->dbModel = $dbModel;
         $this->tables = $tables;
     }
 
@@ -85,7 +70,12 @@ abstract class AbstractStore
      */
     protected function connect()
     {
-        $db = new \PDO("mysql:host=".$this->host.";dbname=".$this->db, $this->user, $this->password);
+        $db = new \PDO(
+            'mysql:host='.$this->dbModel->getHost().';dbname='.$this->dbModel->getName(),
+            $this->dbModel->getUser(),
+            $this->dbModel->getPassword()
+        );
+
         $db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
         return $db;
