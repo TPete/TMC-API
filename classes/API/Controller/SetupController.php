@@ -22,32 +22,22 @@ class SetupController extends AbstractController
         if ($request->isPost()) {
             $body = $request->getParsedBody();
 
-            $config = [
-                "pathMovies"  => $body["pathMovies"],
-                "aliasMovies" => $body["aliasMovies"],
-                "pathShows"   => $body["pathShows"],
-                "aliasShows"  => $body["aliasShows"],
-                "dbHost"      => $body["dbHost"],
-                "dbName"      => $body["dbName"],
-                "dbUser"      => $body["dbUser"],
-                "dbPassword"  => $body["dbPassword"],
-                "TMDBApiKey"  => $body["TMDBApiKey"],
-                "TTVDBApiKey" => $body["TTVDBApiKey"],
-            ];
+            try {
+                $config = new API\Model\ConfigModel($body);
+                $config->saveTo('config.json');
 
-            API\Util::writeJSONFile("config.json", $config);
-
-            return $response->withStatus(202);
-        } else {
-            $file = "config.json";
-
-            if (false === file_exists($file)) {
-                $file = "example_config.json";
+                return $response->withStatus(202);
+            } catch (API\Exception\InvalidDataException $e) {
+                return $response->withStatus(400);
             }
+        } else {
+            try {
+                $config = API\Model\ConfigModel::init();
 
-            $config = API\Util::readJSONFile($file);
-
-            return $response->withJson($config);
+                return $response->withJson($config->toArray());
+            } catch (API\Exception\InvalidDataException $e) {
+                return $response->withStatus(500);
+            }
         }
     }
 

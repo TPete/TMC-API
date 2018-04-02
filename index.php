@@ -16,14 +16,6 @@ use TinyMediaCenter\API\Service\ShowService;
 
 $app = new Slim\App();
 
-// Get container
-$container = $app->getContainer();
-
-//use RequestResponseArgs strategy
-$container['foundHandler'] = function () {
-    return new \Slim\Handlers\Strategies\RequestResponseArgs();
-};
-
 //Redirect url ending in non-trailing slash to trailing equivalent
 $app->add(function (Request $request, Response $response, callable $next) {
     $uri = $request->getUri();
@@ -37,29 +29,7 @@ $app->add(function (Request $request, Response $response, callable $next) {
     return $next($request, $response);
 });
 
-$config = API\Util::readJSONFile("config.json");
-$configModel = new API\Model\ConfigModel($config);
-$dbModel = $configModel->getDbModel();
-
-$container['db'] = $dbModel;
-$container['config'] = $config;
-
-$showService = new ShowService(
-    $configModel->getPathShows(),
-    $configModel->getAliasShows(),
-    $dbModel,
-    $configModel->getTtvdbApiKey()
-);
-$container['show_service'] = $showService;
-
-$movieService = new MovieService(
-    $configModel->getPathMovies(),
-    $configModel->getAliasMovies(),
-    $dbModel,
-    $configModel->getTmdbApiKey()
-);
-$container['movie_service'] = $movieService;
-
+//Routes configuration
 $app->get('/', function () {
     echo "nothing to see here";
 });
@@ -114,4 +84,37 @@ $app
         }
     );
 
-$app->run();
+try {
+    /* @var \Psr\Container\ContainerInterface $container */
+    $container = $app->getContainer();
+
+    //use RequestResponseArgs strategy
+    $container['foundHandler'] = function () {
+        return new \Slim\Handlers\Strategies\RequestResponseArgs();
+    };
+
+    $configModel = API\Model\ConfigModel::init();
+    $dbModel = $configModel->getDbModel();
+
+    $container['db'] = $dbModel;
+
+    $showService = new ShowService(
+        $configModel->getPathShows(),
+        $configModel->getAliasShows(),
+        $dbModel,
+        $configModel->getTtvdbApiKey()
+    );
+    $container['show_service'] = $showService;
+
+    $movieService = new MovieService(
+        $configModel->getPathMovies(),
+        $configModel->getAliasMovies(),
+        $dbModel,
+        $configModel->getTmdbApiKey()
+    );
+    $container['movie_service'] = $movieService;
+
+    $app->run();
+} catch (API\Exception\InvalidDataException $e) {
+    $app->respond(new Response(500, 'Invalid Config'));
+}

@@ -8,37 +8,6 @@ namespace TinyMediaCenter\API;
 class Util
 {
     /**
-     * @param string $file
-     *
-     * @return array
-     */
-    public static function readJSONFile($file)
-    {
-        $fileData = file_get_contents($file);
-        if (!mb_check_encoding($fileData, 'UTF-8')) {
-            $fileData = utf8_encode($fileData);
-        }
-        $res = json_decode($fileData, true);
-
-        return $res;
-    }
-
-    /**
-     * @param string $file
-     * @param array  $data
-     *
-     * @return bool
-     */
-    public static function writeJSONFile($file, $data)
-    {
-        $json = json_encode($data);
-        $pp = Util::prettyPrint($json);
-        $res = file_put_contents($file, $pp);
-
-        return ($res !== false);
-    }
-
-    /**
      * @param array  $data
      * @param string $sort
      * @param string $order
@@ -66,72 +35,6 @@ class Util
         }
 
         return $data;
-    }
-
-    /**
-     * @param string $json
-     *
-     * @return string
-     */
-    public static function prettyPrint($json)
-    {
-        $result = '';
-        $level = 0;
-        $prevChar = '';
-        $inQuotes = false;
-        $endsLineLevel = null;
-        $jsonLength = strlen($json);
-
-        for ($i = 0; $i < $jsonLength; $i++) {
-            $char = $json[$i];
-            $newLineLevel = null;
-            $post = "";
-            if ($endsLineLevel !== null) {
-                $newLineLevel = $endsLineLevel;
-                $endsLineLevel = null;
-            }
-            if ($char === '"' && $prevChar != '\\') {
-                $inQuotes = !$inQuotes;
-            } else {
-                if (!$inQuotes) {
-                    switch ($char) {
-                        case '}':
-                        case ']':
-                            $level--;
-                            $endsLineLevel = null;
-                            $newLineLevel = $level;
-                            break;
-                        //fall-through
-                        case '{':
-                            //fall-through
-                        case '[':
-                            $level++;
-                        //fall-through
-                        case ',':
-                            $endsLineLevel = $level;
-                            break;
-                        case ':':
-                            $post = " ";
-                            break;
-                        case " ":
-                        case "\t":
-                        case "\n":
-                        case "\r":
-                            $char = "";
-                            $endsLineLevel = $newLineLevel;
-                            $newLineLevel = null;
-                            break;
-                    }
-                }
-            }
-            if ($newLineLevel !== null) {
-                $result .= "\r\n".str_repeat("\t", $newLineLevel);
-            }
-            $result .= $char.$post;
-            $prevChar = $char;
-        }
-
-        return $result;
     }
 
     /**
