@@ -3,7 +3,6 @@
 namespace TinyMediaCenter\API\Service;
 
 use TinyMediaCenter\API\Exception\ScrapeException;
-use TinyMediaCenter\API\Model\DBModel;
 use TinyMediaCenter\API\Service\MediaLibrary\TTVDBWrapper;
 use TinyMediaCenter\API\Service\Store\ShowStoreDB;
 use TinyMediaCenter\API\Util;
@@ -29,15 +28,13 @@ class ShowService extends AbstractCategoryService
     /**
      * ShowController constructor.
      *
-     * @param string  $path
-     * @param string  $alias
-     * @param DBModel $dbModel
-     * @param string  $apiKey
+     * @param ShowStoreDB  $store
+     * @param TTVDBWrapper $scraper
+     * @param string       $path
+     * @param string       $alias
      */
-    public function __construct($path, $alias, DBModel $dbModel, $apiKey)
+    public function __construct(ShowStoreDB $store, TTVDBWrapper $scraper, $path, $alias)
     {
-        $store = new ShowStoreDB($dbModel);
-        $scraper = new TTVDBWrapper($apiKey);
         parent::__construct($path, $alias, $store, $scraper);
         $this->categoryNames = $this->getCategoryNames();
     }

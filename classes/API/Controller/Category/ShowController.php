@@ -2,7 +2,6 @@
 
 namespace TinyMediaCenter\API\Controller\Category;
 
-use Slim\Container;
 use Slim\Http\Request;
 use Slim\Http\Response;
 use TinyMediaCenter\API\Controller\AbstractController;
@@ -19,20 +18,6 @@ class ShowController extends AbstractController
     private $service;
 
     /**
-     * ShowController constructor.
-     *
-     * @param Container $container
-     *
-     * @throws \Interop\Container\Exception\ContainerException
-     */
-    public function __construct(Container $container)
-    {
-        parent::__construct($container);
-
-        $this->service = $container->get('show_service');
-    }
-
-    /**
      * @param Request  $request
      * @param Response $response
      *
@@ -41,7 +26,7 @@ class ShowController extends AbstractController
     public function maintenanceAction(Request $request, Response $response)
     {
         try {
-            $result = $this->service->updateData();
+            $result = $this->getService()->updateData();
 
             return $response->withJson($result);
         } catch (\Exception $e) {
@@ -59,7 +44,7 @@ class ShowController extends AbstractController
     public function indexAction(Request $request, Response $response, $category)
     {
         try {
-            $result = $this->service->getList($category);
+            $result = $this->getService()->getList($category);
 
             return $response->withJson($result);
         } catch (\Exception $e) {
@@ -78,7 +63,7 @@ class ShowController extends AbstractController
     public function episodesAction(Request $request, Response $response, $category, $episode)
     {
         try {
-            $result = $this->service->getEpisodeDescription($category, $episode);
+            $result = $this->getService()->getEpisodeDescription($category, $episode);
 
             return $response->withJson($result);
         } catch (\Exception $e) {
@@ -97,7 +82,7 @@ class ShowController extends AbstractController
     public function detailsAction(Request $request, Response $response, $category, $show)
     {
         try {
-            $result = $this->service->getDetails($category, $show);
+            $result = $this->getService()->getDetails($category, $show);
 
             return $response->withJson($result);
         } catch (\Exception $e) {
@@ -121,12 +106,26 @@ class ShowController extends AbstractController
             $lang = $request->getQueryParam('lang');
 
             $this
-                ->service
+                ->getService()
                 ->updateDetails($category, $show, $title, $tvdbId, $lang);
 
             return $response->withStatus(204);
         } catch (\Exception $e) {
             return $this->handleException($e, $response);
         }
+    }
+
+    /**
+     * @throws \Exception
+     *
+     * @return ShowService
+     */
+    private function getService()
+    {
+        if (null === $this->service) {
+            $this->service = $this->get('show_service');
+        }
+
+        return $this->service;
     }
 }

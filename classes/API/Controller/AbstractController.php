@@ -2,9 +2,9 @@
 
 namespace TinyMediaCenter\API\Controller;
 
+use Interop\Container\Exception\ContainerException;
 use Slim\Container;
 use Slim\Http\Response;
-use TinyMediaCenter\API\Model\DBModel;
 
 /**
  * Class AbstractController
@@ -14,12 +14,7 @@ abstract class AbstractController
     /**
      * @var Container
      */
-    protected $container;
-
-    /**
-     * @var DBModel
-     */
-    protected $db;
+    private $container;
 
     /**
      * AbstractController constructor.
@@ -29,7 +24,22 @@ abstract class AbstractController
     public function __construct(Container $container)
     {
         $this->container = $container;
-        $this->db = $container['db'];
+    }
+
+    /**
+     * @param string $service
+     *
+     * @throws \Exception
+     *
+     * @return mixed
+     */
+    protected function get($service)
+    {
+        try {
+            return $this->container->get($service);
+        } catch (ContainerException $e) {
+            throw new \Exception($e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     /**

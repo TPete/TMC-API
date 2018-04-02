@@ -3,7 +3,6 @@
 namespace TinyMediaCenter\API\Service;
 
 use TinyMediaCenter\API\Exception\ScrapeException;
-use TinyMediaCenter\API\Model\DBModel;
 use TinyMediaCenter\API\Model\MovieModel;
 use TinyMediaCenter\API\Service\MediaLibrary\TMDBWrapper;
 use TinyMediaCenter\API\Service\Store\MovieStoreDB;
@@ -30,15 +29,13 @@ class MovieService extends AbstractCategoryService
     /**
      * MovieController constructor.
      *
-     * @param string  $path
-     * @param string  $alias
-     * @param DBModel $dbModel
-     * @param string  $apiKey
+     * @param MovieStoreDB $store
+     * @param TMDBWrapper  $scraper
+     * @param string       $path
+     * @param string       $alias
      */
-    public function __construct($path, $alias, DBModel $dbModel, $apiKey)
+    public function __construct(MovieStoreDB $store, TMDBWrapper $scraper, $path, $alias)
     {
-        $scraper = new TMDBWrapper($apiKey);
-        $store = new MovieStoreDB($dbModel);
         parent::__construct($path, $alias, $store, $scraper);
         $this->categoryNames = $this->getCategoryNames();
     }

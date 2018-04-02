@@ -67,17 +67,21 @@ class SetupController extends AbstractController
      * @param Request  $request
      * @param Response $response
      *
+     * @throws \Exception
+     *
      * @return Response
      */
     public function setupDBAction(Request $request, Response $response)
     {
         try {
-            $showStore   = new API\Service\Store\ShowStoreDB($this->db);
+            /* @var API\Service\Store\ShowStoreDB $showStore */
+            $showStore   = $this->get('show_store');
             $checkShows  = $showStore->checkSetup();
-            $movieStore  = new API\Service\Store\MovieStoreDB($this->db);
+            /* @var API\Service\Store\MovieStoreDB $movieStore */
+            $movieStore  = $this->get('movie_store');
             $checkMovies = $movieStore->checkSetup();
 
-            if (!$checkShows && !$checkMovies) {
+            if (false === $checkShows && false === $checkMovies) {
                 $showStore->setupDB();
                 $movieStore->setupDB();
 

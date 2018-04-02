@@ -96,21 +96,27 @@ try {
     $configModel = API\Model\ConfigModel::init();
     $dbModel = $configModel->getDbModel();
 
-    $container['db'] = $dbModel;
-
+    //shows
+    $showStore = new API\Service\Store\ShowStoreDB($dbModel);
+    $container['show_store'] = $showStore;
+    $tTvDbWrapper = new API\Service\MediaLibrary\TTVDBWrapper($configModel->getTtvdbApiKey());
     $showService = new ShowService(
+        $showStore,
+        $tTvDbWrapper,
         $configModel->getPathShows(),
-        $configModel->getAliasShows(),
-        $dbModel,
-        $configModel->getTtvdbApiKey()
+        $configModel->getAliasShows()
     );
     $container['show_service'] = $showService;
 
+    //movies
+    $movieStore = new API\Service\Store\MovieStoreDB($dbModel);
+    $container['movie_store'] = $movieStore;
+    $tMDbWrapper = new API\Service\MediaLibrary\TMDBWrapper($configModel->getTmdbApiKey());
     $movieService = new MovieService(
+        $movieStore,
+        $tMDbWrapper,
         $configModel->getPathMovies(),
-        $configModel->getAliasMovies(),
-        $dbModel,
-        $configModel->getTmdbApiKey()
+        $configModel->getAliasMovies()
     );
     $container['movie_service'] = $movieService;
 

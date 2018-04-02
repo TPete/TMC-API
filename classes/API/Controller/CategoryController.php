@@ -16,7 +16,7 @@ class CategoryController extends AbstractController
      * @param Request  $request
      * @param Response $response
      *
-     * @throws \Interop\Container\Exception\ContainerException
+     * @throws \Exception
      *
      * @return Response
      */
@@ -28,12 +28,12 @@ class CategoryController extends AbstractController
         //expects movies to be directly in $config["pathMovies"]
         //which will be listed as a single category
         //TODO: make this consistent and/or more flexible
-        /** @var ShowService $showService */
-        $showService = $this->container->get('show_service');
+        /* @var ShowService $showService */
+        $showService = $this->get('show_service');
         $shows = $showService->getCategories();
 
-        /** @var MovieService $movieService */
-        $movieService = $this->container->get('movie_service');
+        /* @var MovieService $movieService */
+        $movieService = $this->get('movie_service');
         $movies     = $movieService->getCategories();
 
         $categories = [
