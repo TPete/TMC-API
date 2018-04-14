@@ -5,7 +5,6 @@ namespace TinyMediaCenter\API\Service;
 use TinyMediaCenter\API\Exception\ScrapeException;
 use TinyMediaCenter\API\Service\MediaLibrary\TTVDBWrapper;
 use TinyMediaCenter\API\Service\Store\ShowStoreDB;
-use TinyMediaCenter\API\Util;
 
 /**
  * Class ShowService
@@ -224,8 +223,8 @@ class ShowService extends AbstractCategoryService
         * Shows can be placed on level (B) to put them into several categories
         * (the level (A) folders). The setup is auto detected below.
         */
-        $folders = Util::getFolders($this->path);
-        $sub = Util::getFolders($this->path.$folders[0]."/");
+        $folders = $this->getFolders($this->path);
+        $sub = $this->getFolders($this->path.$folders[0]."/");
         $this->useDefault = true;
 
         if (count($sub) > 0) {
@@ -291,10 +290,10 @@ class ShowService extends AbstractCategoryService
      *
      * @return array
      */
-    private function getFolders($category)
+    private function getFoldersByCategory($category)
     {
         $path = $this->getCategoryPath($category);
-        $folders = Util::getFolders($path);
+        $folders = $this->getFolders($path);
 
         return $folders;
     }
@@ -319,7 +318,7 @@ class ShowService extends AbstractCategoryService
         $protocol .= $this->updateEpisodes($category, $shows);
 
         $protocol .= "<h3>Update thumbnails</h3>";
-        $folders = $this->getFolders($category);
+        $folders = $this->getFoldersByCategory($category);
         $protocol .= $this->updateThumbs($category, $folders);
 
         return $protocol;
@@ -334,7 +333,7 @@ class ShowService extends AbstractCategoryService
     {
         $protocol = "";
 
-        foreach ($this->getFolders($category) as $folder) {
+        foreach ($this->getFoldersByCategory($category) as $folder) {
             $protocol .= $this->store->createIfMissing($category, $folder);
         }
 
@@ -348,7 +347,7 @@ class ShowService extends AbstractCategoryService
      */
     private function removeObsoleteShows($category)
     {
-        $folders = $this->getFolders($category);
+        $folders = $this->getFoldersByCategory($category);
 
         return $this->store->removeIfObsolete($category, $folders);
     }

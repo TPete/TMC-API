@@ -54,6 +54,28 @@ abstract class AbstractCategoryService
     abstract public function updateData();
 
     /**
+     * @param string $path
+     * @param array  $exclude
+     *
+     * @return array
+     */
+    public function getFolders($path, $exclude = array())
+    {
+        $elements = scandir($path);
+        $folders = array();
+        $exc = array_merge($exclude, array(".", "..", "\$RECYCLE.BIN", "System Volume Information"));
+        foreach ($elements as $ele) {
+            if (!in_array($ele, $exc)) {
+                if (is_dir($path.$ele)) {
+                    $folders[] = $ele;
+                }
+            }
+        }
+
+        return $folders;
+    }
+
+    /**
      * @param string $pattern
      * @param int    $flags
      *

@@ -2,15 +2,23 @@
 
 namespace TinyMediaCenter\API\Controller;
 
-use TinyMediaCenter\API;
 use Slim\Http\Request;
 use Slim\Http\Response;
+use TinyMediaCenter\API;
+use TinyMediaCenter\API\Model\ConfigModel;
+use TinyMediaCenter\API\Model\DBModel;
+use TinyMediaCenter\API\Service\SetupService;
 
 /**
  * Class SetupController
  */
 class SetupController extends AbstractController
 {
+    /**
+     * @var SetupService
+     */
+    private $service;
+
     /**
      * @param Request  $request
      * @param Response $response
@@ -23,8 +31,8 @@ class SetupController extends AbstractController
             $body = $request->getParsedBody();
 
             try {
-                $config = new API\Model\ConfigModel($body);
-                $config->saveTo('config.json');
+                $config = new ConfigModel($body);
+                $config->save();
 
                 return $response->withStatus(202);
             } catch (API\Exception\InvalidDataException $e) {
@@ -32,7 +40,7 @@ class SetupController extends AbstractController
             }
         } else {
             try {
-                $config = API\Model\ConfigModel::init();
+                $config = ConfigModel::init();
 
                 return $response->withJson($config->toArray());
             } catch (API\Exception\InvalidDataException $e) {
@@ -46,17 +54,19 @@ class SetupController extends AbstractController
      * @param Response $response
      * @param string   $type
      *
+     * @throws \Exception
+     *
      * @return Response
      */
     public function checkAction(Request $request, Response $response, $type)
     {
         $res = [];
 
-        if ($type === "db") {
-            $res = $this->checkDB($request);
+        if (SetupService::TYPE_DATABASE === $type) {
+            $res = $this->checkDatabase($request);
         }
 
-        if (in_array($type, ['movies', 'shows'])) {
+        if (in_array($type, SetupService::CATEGORIES)) {
             $res = $this->checkCategory($request, $type);
         }
 
@@ -74,17 +84,7 @@ class SetupController extends AbstractController
     public function setupDBAction(Request $request, Response $response)
     {
         try {
-            /* @var API\Service\Store\ShowStoreDB $showStore */
-            $showStore   = $this->get('show_store');
-            $checkShows  = $showStore->checkSetup();
-            /* @var API\Service\Store\MovieStoreDB $movieStore */
-            $movieStore  = $this->get('movie_store');
-            $checkMovies = $movieStore->checkSetup();
-
-            if (false === $checkShows && false === $checkMovies) {
-                $showStore->setupDB();
-                $movieStore->setupDB();
-
+            if ($this->getService()->setupDatabase()) {
                 $status = 202;
             } else {
                 $status = 500;
@@ -97,39 +97,39 @@ class SetupController extends AbstractController
     }
 
     /**
+     * @throws \Exception
+     *
+     * @return SetupService
+     */
+    private function getService()
+    {
+        if (null === $this->service) {
+            $this->service = $this->get('setup_service');
+        }
+
+        return $this->service;
+    }
+
+    /**
      * @param Request $request
+     *
+     * @throws \Exception
      *
      * @return array
      */
-    private function checkDB(Request $request)
+    private function checkDatabase(Request $request)
     {
-        $res = [];
+        $query = $request->getQueryParams();
+        $dbModel = new DBModel($query['host'], $query['name'], $query['user'], $query['password']);
 
-        try {
-            $res["dbAccess"] = "Ok";
-            $query = $request->getQueryParams();
-            $db = new API\Model\DBModel($query['host'], $query['name'], $query['user'], $query['password']);
-            $showStore   = new API\Service\Store\ShowStoreDB($db);
-            $checkShows  = $showStore->checkSetup();
-            $movieStore  = new API\Service\Store\MovieStoreDB($db);
-            $checkMovies = $movieStore->checkSetup();
-
-            if ($checkShows && $checkMovies) {
-                $res["dbSetup"] = "Ok";
-            } else {
-                $res["dbSetup"] = "Error";
-            }
-        } catch (\PDOException $e) {
-            $res["dbAccess"] = "Error: ".$e->getMessage();
-            $res["dbSetup"]  = "Error";
-        }
-
-        return $res;
+        return $this->getService()->checkDatabase($dbModel);
     }
 
     /**
      * @param Request $request
      * @param string  $category
+     *
+     * @throws \Exception
      *
      * @return array
      */
@@ -140,15 +140,6 @@ class SetupController extends AbstractController
         $path = $request->getQueryParam($pathKey);
         $alias = $request->getQueryParam($aliasKey);
 
-        $res = [];
-
-        if (is_dir($path) && is_writable($path) && API\Util::checkUrl($alias)) {
-            $res["result"]  = "Ok";
-            $res["folders"] = API\Util::getFolders($path);
-        } else {
-            $res["result"] = "Error";
-        }
-
-        return $res;
+        return $this->getService()->checkCategory($category, $path, $alias);
     }
 }

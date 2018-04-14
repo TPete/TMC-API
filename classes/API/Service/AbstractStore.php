@@ -32,12 +32,15 @@ abstract class AbstractStore
     }
 
     /**
+     * @param DBModel $dbModel
+     *
      * @return bool
      */
-    public function checkSetup()
+    public function checkSetup(DBModel $dbModel = null)
     {
-        $db = $this->connect();
+        $db = $this->connect($dbModel);
         $result = true;
+
         foreach ($this->tables as $table) {
             try {
                 $sql = "SELECT 1 FROM ".$table." LIMIT 1;";
@@ -66,14 +69,20 @@ abstract class AbstractStore
     }
 
     /**
+     * @param DBModel $dbModel
+     *
      * @return \PDO
      */
-    protected function connect()
+    protected function connect(DBModel $dbModel = null)
     {
+        if (null === $dbModel) {
+            $dbModel = $this->dbModel;
+        }
+
         $db = new \PDO(
-            'mysql:host='.$this->dbModel->getHost().';dbname='.$this->dbModel->getName(),
-            $this->dbModel->getUser(),
-            $this->dbModel->getPassword()
+            'mysql:host='.$dbModel->getHost().';dbname='.$dbModel->getName(),
+            $dbModel->getUser(),
+            $dbModel->getPassword()
         );
 
         $db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);

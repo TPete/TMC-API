@@ -129,17 +129,15 @@ class ConfigModel
     }
 
     /**
-     * Saves the config data in the given file.
-     *
-     * @param string $filename
+     * Saves the config data.
      *
      * @return bool
      */
-    public function saveTo($filename)
+    public function save()
     {
         $json = json_encode($this->toArray());
         $pp = $this->prettyPrint($json);
-        $res = file_put_contents($filename, $pp);
+        $res = file_put_contents(self::FILENAME, $pp);
 
         return ($res !== false);
     }

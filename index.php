@@ -12,6 +12,7 @@ use TinyMediaCenter\API\Controller\Category\ShowController;
 use TinyMediaCenter\API\Controller\CategoryController;
 use TinyMediaCenter\API\Controller\SetupController;
 use TinyMediaCenter\API\Service\MovieService;
+use TinyMediaCenter\API\Service\SetupService;
 use TinyMediaCenter\API\Service\ShowService;
 
 $app = new Slim\App();
@@ -93,6 +94,7 @@ try {
         return new \Slim\Handlers\Strategies\RequestResponseArgs();
     };
 
+    //config data
     $configModel = API\Model\ConfigModel::init();
     $dbModel = $configModel->getDbModel();
 
@@ -119,6 +121,10 @@ try {
         $configModel->getAliasMovies()
     );
     $container['movie_service'] = $movieService;
+
+    //setup
+    $setupService = new SetupService($showService, $movieService, $showStore, $movieStore);
+    $container['setup_service'] = $setupService;
 
     $app->run();
 } catch (API\Exception\InvalidDataException $e) {

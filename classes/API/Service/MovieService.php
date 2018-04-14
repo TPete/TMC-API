@@ -6,7 +6,6 @@ use TinyMediaCenter\API\Exception\ScrapeException;
 use TinyMediaCenter\API\Model\MovieModel;
 use TinyMediaCenter\API\Service\MediaLibrary\TMDBWrapper;
 use TinyMediaCenter\API\Service\Store\MovieStoreDB;
-use TinyMediaCenter\API\Util;
 
 /**
  * Class MovieService
@@ -303,7 +302,7 @@ class MovieService extends AbstractCategoryService
      */
     private function getCategoryNames()
     {
-        $folders = Util::getFolders($this->path, ["pictures"]);
+        $folders = $this->getFolders($this->path, ["pictures"]);
         $categories = [MovieService::DEFAULT_CATEGORY];
         $this->useDefault = true;
 
