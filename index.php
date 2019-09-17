@@ -4,6 +4,7 @@ set_time_limit(900);
 require "vendor/autoload.php";
 require "vendor/james-heinrich/getid3/getid3/getid3.php";
 
+use Slim\Container;
 use Slim\Http\Request;
 use Slim\Http\Response;
 use TinyMediaCenter\API;
@@ -31,8 +32,12 @@ $app->add(function (Request $request, Response $response, callable $next) {
 });
 
 //Routes configuration
-$app->get('/', function () {
-    echo "nothing to see here";
+$app->get('/', function (Request $request, Response $response) {
+    return $response->withJson([
+        'data' => [
+            'message' => 'nothing to see here',
+        ],
+    ]);
 });
 
 $app
@@ -88,7 +93,7 @@ $app
 try {
     $language = 'de';
 
-    /* @var \Psr\Container\ContainerInterface $container */
+    /* @var Container $container */
     $container = $app->getContainer();
 
     //use RequestResponseArgs strategy
@@ -102,7 +107,6 @@ try {
 
     //shows
     $showStore = new API\Service\Store\ShowStoreDB($dbModel);
-    $container['show_store'] = $showStore;
     $tTvDbWrapper = new API\Service\MediaLibrary\TTVDBWrapper($configModel->getTtvdbApiKey());
     $showService = new ShowService(
         $showStore,
@@ -111,11 +115,15 @@ try {
         $configModel->getAliasShows()
     );
     $container['show_service'] = $showService;
+    $container[ShowController::class] = function (Container $container) {
+        /** @var ShowService $showService */
+        $showService = $container->get('show_service');
+
+        return new ShowController($showService);
+    };
 
     //movies
     $movieStore = new API\Service\Store\MovieStoreDB($dbModel);
-    $container['movie_store'] = $movieStore;
-//    $tMDbWrapper = new API\Service\MediaLibrary\TMDBWrapper($configModel->getTmdbApiKey(), $language);
     $theMovieDbApi = new API\Service\Api\Movie\TheMovieDbApi($configModel->getTmdbApiKey(), $language);
     $movieService = new MovieService(
         $movieStore,
@@ -124,10 +132,32 @@ try {
         $configModel->getAliasMovies()
     );
     $container['movie_service'] = $movieService;
+    $container[MovieController::class] = function (Container $container) {
+        /** @var MovieService $movieService */
+        $movieService = $container->get('movie_service');
+
+        return new MovieController($movieService);
+    };
+
+    //categories
+    $container[CategoryController::class] = function (Container $container) {
+        /** @var ShowService $showService */
+        $showService = $container->get('show_service');
+        /** @var MovieService $movieService */
+        $movieService = $container->get('movie_service');
+
+        return new CategoryController($showService, $movieService);
+    };
 
     //setup
     $setupService = new SetupService($showService, $movieService, $showStore, $movieStore);
     $container['setup_service'] = $setupService;
+    $container[SetupController::class] = function (Container $container) {
+        /** @var SetupService $setupService */
+        $setupService = $container->get('setup_service');
+
+        return new SetupController($setupService);
+    };
 
     $app->run();
 } catch (API\Exception\InvalidDataException $e) {

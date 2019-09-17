@@ -12,37 +12,6 @@ use Slim\Http\Response;
 abstract class AbstractController
 {
     /**
-     * @var Container
-     */
-    private $container;
-
-    /**
-     * AbstractController constructor.
-     *
-     * @param Container $container
-     */
-    public function __construct(Container $container)
-    {
-        $this->container = $container;
-    }
-
-    /**
-     * @param string $service
-     *
-     * @throws \Exception
-     *
-     * @return mixed
-     */
-    protected function get($service)
-    {
-        try {
-            return $this->container->get($service);
-        } catch (ContainerException $e) {
-            throw new \Exception($e->getMessage(), $e->getCode(), $e);
-        }
-    }
-
-    /**
      * @param \Exception $exception
      * @param Response   $response
      *

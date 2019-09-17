@@ -17,7 +17,17 @@ class SetupController extends AbstractController
     /**
      * @var SetupService
      */
-    private $service;
+    private $setupService;
+
+    /**
+     * SetupController constructor.
+     *
+     * @param SetupService $service
+     */
+    public function __construct(SetupService $service)
+    {
+        $this->setupService = $service;
+    }
 
     /**
      * @param Request  $request
@@ -84,7 +94,7 @@ class SetupController extends AbstractController
     public function setupDBAction(Request $request, Response $response)
     {
         try {
-            if ($this->getService()->setupDatabase()) {
+            if ($this->setupService->setupDatabase()) {
                 $status = 202;
             } else {
                 $status = 500;
@@ -94,20 +104,6 @@ class SetupController extends AbstractController
         } catch (\Exception $e) {
             return $this->handleException($e, $response);
         }
-    }
-
-    /**
-     * @throws \Exception
-     *
-     * @return SetupService
-     */
-    private function getService()
-    {
-        if (null === $this->service) {
-            $this->service = $this->get('setup_service');
-        }
-
-        return $this->service;
     }
 
     /**
@@ -122,7 +118,7 @@ class SetupController extends AbstractController
         $query = $request->getQueryParams();
         $dbModel = new DBModel($query['host'], $query['name'], $query['user'], $query['password']);
 
-        return $this->getService()->checkDatabase($dbModel);
+        return $this->setupService->checkDatabase($dbModel);
     }
 
     /**
@@ -140,6 +136,6 @@ class SetupController extends AbstractController
         $path = $request->getQueryParam($pathKey);
         $alias = $request->getQueryParam($aliasKey);
 
-        return $this->getService()->checkCategory($category, $path, $alias);
+        return $this->setupService->checkCategory($category, $path, $alias);
     }
 }

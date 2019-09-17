@@ -15,7 +15,17 @@ class ShowController extends AbstractController
     /**
      * @var ShowService
      */
-    private $service;
+    private $showService;
+
+    /**
+     * ShowController constructor.
+     *
+     * @param ShowService $service
+     */
+    public function __construct(ShowService $service)
+    {
+        $this->showService = $service;
+    }
 
     /**
      * @param Request  $request
@@ -26,7 +36,7 @@ class ShowController extends AbstractController
     public function maintenanceAction(Request $request, Response $response)
     {
         try {
-            $result = $this->getService()->updateData();
+            $result = $this->showService->updateData();
 
             return $response->withJson($result);
         } catch (\Exception $e) {
@@ -44,7 +54,7 @@ class ShowController extends AbstractController
     public function indexAction(Request $request, Response $response, $category)
     {
         try {
-            $result = $this->getService()->getList($category);
+            $result = $this->showService->getList($category);
 
             return $response->withJson($result);
         } catch (\Exception $e) {
@@ -63,7 +73,7 @@ class ShowController extends AbstractController
     public function episodesAction(Request $request, Response $response, $category, $episode)
     {
         try {
-            $result = $this->getService()->getEpisodeDescription($category, $episode);
+            $result = $this->showService->getEpisodeDescription($category, $episode);
 
             return $response->withJson($result);
         } catch (\Exception $e) {
@@ -82,7 +92,7 @@ class ShowController extends AbstractController
     public function detailsAction(Request $request, Response $response, $category, $show)
     {
         try {
-            $result = $this->getService()->getDetails($category, $show);
+            $result = $this->showService->getDetails($category, $show);
 
             return $response->withJson($result);
         } catch (\Exception $e) {
@@ -106,26 +116,12 @@ class ShowController extends AbstractController
             $lang = $request->getQueryParam('lang');
 
             $this
-                ->getService()
+                ->showService
                 ->updateDetails($category, $show, $title, $tvdbId, $lang);
 
             return $response->withStatus(204);
         } catch (\Exception $e) {
             return $this->handleException($e, $response);
         }
-    }
-
-    /**
-     * @throws \Exception
-     *
-     * @return ShowService
-     */
-    private function getService()
-    {
-        if (null === $this->service) {
-            $this->service = $this->get('show_service');
-        }
-
-        return $this->service;
     }
 }

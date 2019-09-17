@@ -15,7 +15,17 @@ class MovieController extends AbstractController
     /**
      * @var MovieService
      */
-    private $service;
+    private $movieService;
+
+    /**
+     * MovieController constructor.
+     *
+     * @param MovieService $service
+     */
+    public function __construct(MovieService $service)
+    {
+        $this->movieService = $service;
+    }
 
     /**
      * @param Request  $request
@@ -40,11 +50,11 @@ class MovieController extends AbstractController
             $list       = (int) $request->getQueryParam('list', 0);
 
             if ($collection > 0) {
-                $movieList = $this->getService()->getMoviesForCollection($category, $collection, $cnt, $offset);
+                $movieList = $this->movieService->getMoviesForCollection($category, $collection, $cnt, $offset);
             } elseif ($list > 0) {
-                $movieList = $this->getService()->getMoviesForList($category, $list, $cnt, $offset);
+                $movieList = $this->movieService->getMoviesForList($category, $list, $cnt, $offset);
             } else {
-                $movieList = $this->getService()->getMovies($category, $sort, $order, $filter, $genre, $cnt, $offset);
+                $movieList = $this->movieService->getMovies($category, $sort, $order, $filter, $genre, $cnt, $offset);
             }
 
             return $response->withJson($movieList);
@@ -63,7 +73,7 @@ class MovieController extends AbstractController
     public function genresAction(Request $request, Response $response, $category)
     {
         try {
-            $genres = $this->getService()->getGenres($category);
+            $genres = $this->movieService->getGenres($category);
 
             $resp = [];
             $comp = $request->getQueryParam('term');
@@ -92,8 +102,8 @@ class MovieController extends AbstractController
     public function compilationsAction(Request $request, Response $response, $category)
     {
         try {
-            $lists       = $this->getService()->getLists($category);
-            $collections = $this->getService()->getCollections($category);
+            $lists       = $this->movieService->getLists($category);
+            $collections = $this->movieService->getCollections($category);
             $comp = [
                 "lists"       => $lists,
                 "collections" => $collections,
@@ -114,7 +124,7 @@ class MovieController extends AbstractController
     public function maintenanceAction(Request $request, Response $response)
     {
         try {
-            $result = $this->getService()->updateData();
+            $result = $this->movieService->updateData();
 
             return $response->withJson($result);
         } catch (\Exception $e) {
@@ -133,7 +143,7 @@ class MovieController extends AbstractController
     {
         try {
             $externalId = intval($externalId, 10);
-            $details = $this->getService()->lookupMovie($externalId);
+            $details = $this->movieService->lookupMovie($externalId);
 
             return $response->withJson($details);
         } catch (\Exception $e) {
@@ -153,7 +163,7 @@ class MovieController extends AbstractController
     {
         try {
             $id      = intval($id, 10);
-            $details = $this->getService()->getMovieDetails($category, $id);
+            $details = $this->movieService->getMovieDetails($category, $id);
 
             return $response->withJson($details);
         } catch (\Exception $e) {
@@ -176,26 +186,12 @@ class MovieController extends AbstractController
             $movieDbId = $request->getParsedBodyParam('movieDbId');
             $filename = $request->getParsedBodyParam('filename');
             $result = $this
-                ->getService()
+                ->movieService
                 ->updateFromScraper($category, $id, $movieDbId, $filename);
 
             return $response->withJson($result);
         } catch (\Exception $e) {
             return $this->handleException($e, $response);
         }
-    }
-
-    /**
-     * @throws \Exception
-     *
-     * @return MovieService
-     */
-    private function getService()
-    {
-        if (null === $this->service) {
-            $this->service = $this->get('movie_service');
-        }
-
-        return $this->service;
     }
 }

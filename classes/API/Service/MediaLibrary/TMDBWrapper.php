@@ -10,6 +10,8 @@ use TinyMediaCenter\API\Service\AbstractDBAPIWrapper;
  * Class TMDBWrapper
  *
  * Wrapper for themoviedb.org API
+ *
+ * @deprecated Use TinyMediaCenter\API\Service\Api\Movie\TheMovieDbApi
  */
 class TMDBWrapper extends AbstractDBAPIWrapper
 {

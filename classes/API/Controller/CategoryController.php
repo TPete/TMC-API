@@ -13,6 +13,28 @@ use TinyMediaCenter\API\Service\ShowService;
 class CategoryController extends AbstractController
 {
     /**
+     * @var ShowService
+     */
+    private $showService;
+
+    /**
+     * @var MovieService
+     */
+    private $movieService;
+
+    /**
+     * CategoryController constructor.
+     *
+     * @param ShowService  $showService
+     * @param MovieService $movieService
+     */
+    public function __construct(ShowService $showService, MovieService $movieService)
+    {
+        $this->showService = $showService;
+        $this->movieService = $movieService;
+    }
+
+    /**
      * @param Request  $request
      * @param Response $response
      *
@@ -28,17 +50,10 @@ class CategoryController extends AbstractController
         //expects movies to be directly in $config["pathMovies"]
         //which will be listed as a single category
         //TODO: make this consistent and/or more flexible
-        /* @var ShowService $showService */
-        $showService = $this->get('show_service');
-        $shows = $showService->getCategories();
-
-        /* @var MovieService $movieService */
-        $movieService = $this->get('movie_service');
-        $movies     = $movieService->getCategories();
 
         $categories = [
-            'shows' => $shows,
-            'movies' => $movies,
+            'shows' => $this->showService->getCategories(),
+            'movies' => $this->movieService->getCategories(),
         ];
 
         return $response->withJson($categories);
