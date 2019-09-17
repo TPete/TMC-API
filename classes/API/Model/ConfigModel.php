@@ -145,11 +145,38 @@ class ConfigModel
     /**
      * Returns the config data as an associative array.
      *
+     * @param bool $grouped
+     *
      * @return array
      */
-    public function toArray()
+    public function toArray($grouped = false)
     {
-        return $this->data;
+        if (false === $grouped) {
+            $result = $this->data;
+        } else {
+            $result = [
+                'movies' => [
+                    self::KEY_PATH_MOVIES => $this->get(self::KEY_PATH_MOVIES),
+                    self::KEY_ALIAS_MOVIES => $this->get(self::KEY_ALIAS_MOVIES),
+                ],
+                'show' => [
+                    self::KEY_PATH_SHOWS => $this->get(self::KEY_PATH_SHOWS),
+                    self::KEY_ALIAS_SHOWS => $this->get(self::KEY_ALIAS_SHOWS),
+                ],
+                'db' => [
+                    self::KEY_DB_HOST => $this->get(self::KEY_DB_HOST),
+                    self::KEY_DB_NAME => $this->get(self::KEY_DB_NAME),
+                    self::KEY_DB_USER => $this->get(self::KEY_DB_USER),
+                    self::KEY_DB_PASSWORD => $this->get(self::KEY_DB_PASSWORD),
+                ],
+                'api' => [
+                    self::KEY_TMDB_API_KEY => $this->get(self::KEY_TMDB_API_KEY),
+                    self::KEY_TTVDB_API_KEY => $this->get(self::KEY_TTVDB_API_KEY),
+                ],
+            ];
+        }
+
+        return $result;
     }
 
     /**
@@ -327,3 +354,4 @@ class ConfigModel
         return $result;
     }
 }
+

@@ -42,7 +42,7 @@ class SetupController extends AbstractController
             try {
                 $config = ConfigModel::init();
 
-                return $response->withJson($config->toArray());
+                return $response->withJson($config->toArray(true));
             } catch (API\Exception\InvalidDataException $e) {
                 return $response->withStatus(500);
             }

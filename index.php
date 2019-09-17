@@ -74,7 +74,7 @@ $app
         function () {
             $this->post('/maintenance/', MovieController::class.':maintenanceAction');
 
-            $this->get('/lookup/{id}/', MovieController::class.':lookupAction');
+            $this->get('/lookup/{externalId}/', MovieController::class.':lookupAction');
 
             $this->get('/{category}/', MovieController::class.':indexAction');
             $this->get('/{category}/genres/', MovieController::class.':genresAction');
@@ -86,6 +86,8 @@ $app
     );
 
 try {
+    $language = 'de';
+
     /* @var \Psr\Container\ContainerInterface $container */
     $container = $app->getContainer();
 
@@ -113,10 +115,11 @@ try {
     //movies
     $movieStore = new API\Service\Store\MovieStoreDB($dbModel);
     $container['movie_store'] = $movieStore;
-    $tMDbWrapper = new API\Service\MediaLibrary\TMDBWrapper($configModel->getTmdbApiKey());
+//    $tMDbWrapper = new API\Service\MediaLibrary\TMDBWrapper($configModel->getTmdbApiKey(), $language);
+    $theMovieDbApi = new API\Service\Api\Movie\TheMovieDbApi($configModel->getTmdbApiKey(), $language);
     $movieService = new MovieService(
         $movieStore,
-        $tMDbWrapper,
+        $theMovieDbApi,
         $configModel->getPathMovies(),
         $configModel->getAliasMovies()
     );

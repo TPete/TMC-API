@@ -15,6 +15,26 @@ class ShowService extends AbstractCategoryService
     const DEFAULT_CATEGORY = "Serien";
 
     /**
+     * @var ShowStoreDB
+     */
+    private $showStoreDB;
+
+    /**
+     * @var TTVDBWrapper
+     */
+    private $ttvdbWrapper;
+
+    /**
+     * @var string
+     */
+    private $path;
+
+    /**
+     * @var string
+     */
+    private $alias;
+
+    /**
      * @var boolean
      */
     private $useDefault;
@@ -27,15 +47,17 @@ class ShowService extends AbstractCategoryService
     /**
      * ShowController constructor.
      *
-     * @param ShowStoreDB  $store
-     * @param TTVDBWrapper $scraper
+     * @param ShowStoreDB  $showStoreDB
+     * @param TTVDBWrapper $ttvdbWrapper
      * @param string       $path
      * @param string       $alias
      */
-    public function __construct(ShowStoreDB $store, TTVDBWrapper $scraper, $path, $alias)
+    public function __construct(ShowStoreDB $showStoreDB, TTVDBWrapper $ttvdbWrapper, $path, $alias)
     {
-        parent::__construct($path, $alias, $store, $scraper);
-        $this->categoryNames = $this->getCategoryNames();
+        $this->showStoreDB = $showStoreDB;
+        $this->ttvdbWrapper = $ttvdbWrapper;
+        $this->path = $path;
+        $this->alias = $alias;
     }
 
     /**
@@ -45,7 +67,7 @@ class ShowService extends AbstractCategoryService
     {
         $categories = [];
 
-        foreach ($this->categoryNames as $name) {
+        foreach ($this->getCategoryNames() as $name) {
             $categories["shows/".$name."/"] = $name;
         }
 
@@ -59,7 +81,7 @@ class ShowService extends AbstractCategoryService
      */
     public function getList($category)
     {
-        $overview = $this->store->getShows($category);
+        $overview = $this->showStoreDB->getShows($category);
         $result = [];
         $path = $this->getCategoryAlias($category);
 
@@ -83,8 +105,8 @@ class ShowService extends AbstractCategoryService
      */
     public function getDetails($category, $id)
     {
-        $episodesData = $this->store->getEpisodes($category, $id);
-        $showDetails = $this->store->getShowDetails($category, $id);
+        $episodesData = $this->showStoreDB->getEpisodes($category, $id);
+        $showDetails = $this->showStoreDB->getShowDetails($category, $id);
         $base = $this->getCategoryPath($category);
         $base .= $id."/";
         $files = glob($base."*.avi");
@@ -157,7 +179,7 @@ class ShowService extends AbstractCategoryService
      */
     public function getEpisodeDescription($category, $id)
     {
-        return $this->store->getEpisodeDescription($category, $id);
+        return $this->showStoreDB->getEpisodeDescription($category, $id);
     }
 
     /**
@@ -169,7 +191,7 @@ class ShowService extends AbstractCategoryService
      */
     public function updateDetails($category, $folder, $title, $tvdbId, $lang)
     {
-        $oldId = $this->store->updateDetails($category, $folder, $title, $tvdbId, $lang);
+        $oldId = $this->showStoreDB->updateDetails($category, $folder, $title, $tvdbId, $lang);
 
         if ($oldId !== $tvdbId) {
             $path = $this->getCategoryPath($category);
@@ -187,7 +209,7 @@ class ShowService extends AbstractCategoryService
             }
 
             $shows = [];
-            $shows[] = $this->store->getShowDetails($category, $folder);
+            $shows[] = $this->showStoreDB->getShowDetails($category, $folder);
             $this->updateEpisodes($category, $shows);
             $this->updateThumbs($category, [$folder]);
         }
@@ -200,7 +222,7 @@ class ShowService extends AbstractCategoryService
     {
         $protocol = "";
 
-        foreach ($this->categoryNames as $category) {
+        foreach ($this->getCategoryNames() as $category) {
             $protocol .= $this->maintenance($category);
         }
 
@@ -210,42 +232,46 @@ class ShowService extends AbstractCategoryService
     /**
      * @return array
      */
-    private function getCategoryNames()
+    public function getCategoryNames()
     {
-        /*
-         * shows_root
-        * 	|_ folders (A)
-        *      |_ sub  (B)
-        * Each show has to be placed in its own folder. These folders can be
-        * placed at level (A) or (B) below the shows_root. If they are on level (A)
-        * all shows will be available via a single menu entry (a category -
-        * which will be named default in the database).
-        * Shows can be placed on level (B) to put them into several categories
-        * (the level (A) folders). The setup is auto detected below.
-        */
-        $folders = $this->getFolders($this->path);
-        $sub = $this->getFolders($this->path.$folders[0]."/");
-        $this->useDefault = true;
+        if (empty($this->categoryNames)) {
+            /*
+             * shows_root
+            * 	|_ folders (A)
+            *      |_ sub  (B)
+            * Each show has to be placed in its own folder. These folders can be
+            * placed at level (A) or (B) below the shows_root. If they are on level (A)
+            * all shows will be available via a single menu entry (a category -
+            * which will be named default in the database).
+            * Shows can be placed on level (B) to put them into several categories
+            * (the level (A) folders). The setup is auto detected below.
+            */
+            $folders = $this->getFolders($this->path);
+            $sub = $this->getFolders($this->path.$folders[0]."/");
+            $this->useDefault = true;
 
-        if (count($sub) > 0) {
-            $files = glob($this->path.$folders[0]."/".$sub[0]."/*.avi");
+            if (count($sub) > 0) {
+                $files = glob($this->path.$folders[0]."/".$sub[0]."/*.avi");
 
-            if (count($files) > 0) {
-                $this->useDefault = false;
+                if (count($files) > 0) {
+                    $this->useDefault = false;
+                }
             }
+
+            if ($this->useDefault) {
+                $categories = [ShowService::DEFAULT_CATEGORY];
+            } else {
+                $categories = [];
+
+                foreach ($folders as $folder) {
+                    $categories[] = $folder;
+                }
+            }
+
+            $this->categoryNames = $categories;
         }
 
-        if ($this->useDefault) {
-            $categories = [ShowService::DEFAULT_CATEGORY];
-        } else {
-            $categories = [];
-
-            foreach ($folders as $folder) {
-                $categories[] = $folder;
-            }
-        }
-
-        return $categories;
+        return $this->categoryNames;
     }
 
     /**
@@ -314,7 +340,7 @@ class ShowService extends AbstractCategoryService
         $protocol .= $this->removeObsoleteShows($category);
 
         $protocol .= "<h3>Update episodes</h3>";
-        $shows = $this->store->getShows($category);
+        $shows = $this->showStoreDB->getShows($category);
         $protocol .= $this->updateEpisodes($category, $shows);
 
         $protocol .= "<h3>Update thumbnails</h3>";
@@ -334,7 +360,7 @@ class ShowService extends AbstractCategoryService
         $protocol = "";
 
         foreach ($this->getFoldersByCategory($category) as $folder) {
-            $protocol .= $this->store->createIfMissing($category, $folder);
+            $protocol .= $this->showStoreDB->createIfMissing($category, $folder);
         }
 
         return $protocol;
@@ -349,7 +375,7 @@ class ShowService extends AbstractCategoryService
     {
         $folders = $this->getFoldersByCategory($category);
 
-        return $this->store->removeIfObsolete($category, $folders);
+        return $this->showStoreDB->removeIfObsolete($category, $folders);
     }
 
     /**
@@ -368,9 +394,9 @@ class ShowService extends AbstractCategoryService
 
                 if ($show["tvdb_id"] === null) {
                     $search = urlencode($show["title"]);
-                    $id = $this->scraper->getSeriesId($search);
-                    $this->store->updateDetails($category, $show["folder"], $show["title"], $id, $show["lang"]);
-                    $show = $this->store->getShowDetails($category, $show["folder"]);
+                    $id = $this->ttvdbWrapper->getSeriesId($search);
+                    $this->showStoreDB->updateDetails($category, $show["folder"], $show["title"], $id, $show["lang"]);
+                    $show = $this->showStoreDB->getShowDetails($category, $show["folder"]);
                 }
 
                 $path = $this->getCategoryPath($category);
@@ -378,14 +404,14 @@ class ShowService extends AbstractCategoryService
 
                 if (!file_exists($path)) {
                     $protocol .= "Getting bakground image ... ";
-                    $this->scraper->downloadBG($show["tvdb_id"], $path);
+                    $this->ttvdbWrapper->downloadBG($show["tvdb_id"], $path);
                 }
 
                 $protocol .= "Scraping ... ";
-                $seasons = $this->scraper->getSeriesInfoById($show["tvdb_id"], $show["ordering_scheme"], $show["lang"]);
+                $seasons = $this->ttvdbWrapper->getSeriesInfoById($show["tvdb_id"], $show["ordering_scheme"], $show["lang"]);
 
                 if (count($seasons) > 0) {
-                    $this->store->updateEpisodes($show["id"], $seasons);
+                    $this->showStoreDB->updateEpisodes($show["id"], $seasons);
                     $protocol .= "Done";
                 } else {
                     $protocol .= "Scraping failed (check ID): No data";

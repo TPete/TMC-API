@@ -125,15 +125,15 @@ class MovieController extends AbstractController
     /**
      * @param Request  $request
      * @param Response $response
-     * @param string   $id
+     * @param string   $externalId
      *
      * @return Response
      */
-    public function lookupAction(Request $request, Response $response, $id)
+    public function lookupAction(Request $request, Response $response, $externalId)
     {
         try {
-            $id = intval($id, 10);
-            $details = $this->getService()->lookupMovie($id);
+            $externalId = intval($externalId, 10);
+            $details = $this->getService()->lookupMovie($externalId);
 
             return $response->withJson($details);
         } catch (\Exception $e) {

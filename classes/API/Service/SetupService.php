@@ -118,7 +118,7 @@ class SetupService
             $service = $this->getServiceByCategory($category);
 
             $res['result']  = 'Ok';
-            $res['folders'] = $service->getFolders($path);
+            $res['folders'] = $service->getCategoryNames();
         } else {
             $res['result'] = 'Error';
         }

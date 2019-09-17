@@ -2,6 +2,9 @@
 
 namespace TinyMediaCenter\API\Service\Store;
 
+use TinyMediaCenter\API\Model\MediaFileInfoModel;
+use TinyMediaCenter\API\Model\Movie\CollectionModelInterface;
+use TinyMediaCenter\API\Model\Movie\MovieModelInterface;
 use TinyMediaCenter\API\Model\DBModel;
 use TinyMediaCenter\API\Service\AbstractStore;
 
@@ -248,7 +251,7 @@ class MovieStoreDB extends AbstractStore
      * @param string $category
      * @param int    $id
      *
-     * @return mixed
+     * @return array
      */
     public function getMovieById($category, $id)
     {
@@ -274,79 +277,85 @@ class MovieStoreDB extends AbstractStore
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->bindValue(":id", $id, \PDO::PARAM_INT);
         $stmt->execute();
-        $row["lists"] = array();
+        $row["lists"] = [];
+
         while ($tmp = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $row["lists"][] = array("list_id" => $tmp["list_id"], "list_name" => $tmp["list_name"]);
+            $row["lists"][] = ["list_id" => $tmp["list_id"], "list_name" => $tmp["list_name"]];
         }
 
         return $row;
     }
 
     /**
-     * @param string $category
-     * @param array  $movie
-     * @param string $dir
-     * @param string $id
+     * @param string              $category
+     * @param MovieModelInterface $movie
+     * @param MediaFileInfoModel  $mediaFileInfoModel
+     * @param string              $dir
+     * @param string              $filename
+     * @param string              $id
+     *
+     * @throws \Exception
      */
-    public function updateMovie($category, $movie, $dir, $id = "")
+    public function updateMovie($category, MovieModelInterface $movie, MediaFileInfoModel $mediaFileInfoModel, $dir, $filename, $id = "")
     {
         $db = $this->connect();
+
         if ($id === "") {
-            $sql = "Select ID
-					From movies
-					Where FILENAME = :filename
-					and CATEGORY = :category";
-            $stmt = $db->prepare($sql);
-            $stmt->bindValue(":filename", $movie["filename"], \PDO::PARAM_STR);
-            $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
-            $stmt->execute();
-            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-            if ($row !== false) {
-                $id = $row["ID"];
-            }
+            $id = $this->getIdByCategoryAndFilename($category, $filename);
         }
-        if ($id === "") {
+
+        if (empty($id)) {
             $sql = "Insert into movies(MOVIE_DB_ID, TITLE, FILENAME, OVERVIEW, RELEASE_DATE, GENRES, 
-					COUNTRIES, ACTORS, DIRECTOR, INFO, ORIGINAL_TITLE, COLLECTION_ID, ADDED_DATE, TITLE_SORT, CATEGORY)
+					COUNTRIES, ACTORS, DIRECTOR, INFO, ORIGINAL_TITLE, COLLECTION_ID, ADDED_DATE, TITLE_SORT, CATEGORY,
+					DURATION, RESOLUTION, SOUND)
 					Values (:movieDBId, :title, :filename, :overview, :releaseDate, :genres, 
-					:countries, :actors, :director, :info, :originalTitle, :collectionId, :addedDate, :titleSort, :category)";
+					:countries, :actors, :director, :info, :originalTitle, :collectionId, :addedDate, :titleSort, :category,
+					:duration, :resolution, :sound)";
         } else {
             $sql = "Update movies
 					set MOVIE_DB_ID = :movieDBId, TITLE = :title, FILENAME = :filename, OVERVIEW = :overview, 
 					RELEASE_DATE = :releaseDate, GENRES = :genres, COUNTRIES = :countries, ACTORS = :actors,  
 					DIRECTOR = :director, INFO = :info, ORIGINAL_TITLE = :originalTitle, COLLECTION_ID = :collectionId, 
-					ADDED_DATE = :addedDate, TITLE_SORT = :titleSort, CATEGORY = :category
+					ADDED_DATE = :addedDate, TITLE_SORT = :titleSort, CATEGORY = :category, DURATION = :duration,
+					RESOLUTION = :resolution, SOUND = :sound
 					Where ID = ".$id;
         }
-        $actors = array_slice($movie["actors"], 0, 10);
-        $filename = $dir.$movie["filename"];
-        $added = date("Y-m-d", filemtime($filename));
-        $titleSort = $movie["title"];
+
+        $actors = array_slice($movie->getActors(), 0, 10);
+        $actors = implode(',', $actors);
+        $directors = implode(',', $movie->getDirectors());
+        $countries = implode(',', $movie->getCountries());
+        $genres = implode(',', $movie->getGenres());
+
+        $added = $this->getFiletime($dir.$filename);
+        $titleSort = $movie->getTitle(); //TODO ???
         $stmt = $db->prepare($sql);
-        $stmt->bindValue(":movieDBId", $movie["id"], \PDO::PARAM_INT);
-        $stmt->bindValue(":title", $movie["title"], \PDO::PARAM_STR);
-        $stmt->bindValue(":filename", $movie["filename"], \PDO::PARAM_STR);
-        $stmt->bindValue(":overview", $movie["overview"], \PDO::PARAM_STR);
-        $stmt->bindValue(":releaseDate", $movie["release_date"], \PDO::PARAM_STR);
-        $stmt->bindValue(":genres", implode(",", $movie["genres"]), \PDO::PARAM_STR);
-        $stmt->bindValue(":countries", implode(",", $movie["countries"]), \PDO::PARAM_STR);
-        $stmt->bindValue(":actors", implode(",", $actors), \PDO::PARAM_STR);
-        $stmt->bindValue(":director", $movie["director"], \PDO::PARAM_STR);
-        $stmt->bindValue(":info", $movie["info"], \PDO::PARAM_STR);
-        $stmt->bindValue(":originalTitle", $movie["original_title"], \PDO::PARAM_STR);
-        $stmt->bindValue(":collectionId", $movie["collection_id"], \PDO::PARAM_INT);
+        $stmt->bindValue(":movieDBId", $movie->getId(), \PDO::PARAM_INT);
+        $stmt->bindValue(":title", $movie->getTitle(), \PDO::PARAM_STR);
+        $stmt->bindValue(":filename", $filename, \PDO::PARAM_STR);
+        $stmt->bindValue(":overview", $movie->getOverview(), \PDO::PARAM_STR);
+        $stmt->bindValue(":releaseDate", $movie->getReleaseDate()->format('Y-m-d'), \PDO::PARAM_STR);
+        $stmt->bindValue(":genres", $genres, \PDO::PARAM_STR);
+        $stmt->bindValue(":countries", $countries, \PDO::PARAM_STR);
+        $stmt->bindValue(":actors", $actors, \PDO::PARAM_STR);
+        $stmt->bindValue(":director", $directors, \PDO::PARAM_STR);
+        $stmt->bindValue(":info", $mediaFileInfoModel->getAsString(), \PDO::PARAM_STR);
+        $stmt->bindValue(":originalTitle", $movie->getOriginalTitle(), \PDO::PARAM_STR);
+        $stmt->bindValue(":collectionId", $movie->getCollectionId(), \PDO::PARAM_INT);
         $stmt->bindValue(":addedDate", $added, \PDO::PARAM_STR);
         $stmt->bindValue(":titleSort", $titleSort, \PDO::PARAM_STR);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
+        $stmt->bindValue(":duration", $mediaFileInfoModel->getDuration(), \PDO::PARAM_STR);
+        $stmt->bindValue(":resolution", $mediaFileInfoModel->getResolution(), \PDO::PARAM_STR);
+        $stmt->bindValue(":sound", $mediaFileInfoModel->getSound(), \PDO::PARAM_STR);
         $stmt->execute();
     }
-
     /**
-     * @param string $category
-     * @param array  $collection
-     * @param int    $id
+     * @param string                   $category
+     * @param CollectionModelInterface $collectionModel
+     * @param int                      $id
      */
-    public function updateCollectionById($category, $collection, $id)
+    public function updateCollectionById($category, $collectionModel, $id)
     {
         $sql = "Select ID, MOVIE_DB_ID
 				From collections
@@ -374,11 +383,12 @@ class MovieStoreDB extends AbstractStore
 					Where ID = ".$row["ID"];
         }
         $stmt = $db->prepare($sql);
-        $stmt->bindValue(":movieDBId", $collection["id"], \PDO::PARAM_INT);
-        $stmt->bindValue(":name", $collection["name"], \PDO::PARAM_STR);
-        $stmt->bindValue(":overview", $collection["overview"], \PDO::PARAM_STR);
+        $stmt->bindValue(":movieDBId", $collectionModel->getId(), \PDO::PARAM_INT);
+        $stmt->bindValue(":name", $collectionModel->getName(), \PDO::PARAM_STR);
+        $stmt->bindValue(":overview", $collectionModel->getOverview(), \PDO::PARAM_STR);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
+
         if ($row === false) {
             $id = $db->lastInsertId();
         } else {
@@ -389,7 +399,7 @@ class MovieStoreDB extends AbstractStore
 					Values (:collectionId, :movieId)";
         $stmtParts = $db->prepare($sqlParts);
 
-        foreach ($collection["parts"] as $part) {
+        foreach ($collectionModel->getParts() as $part) {
             $stmtParts->bindValue(":collectionId", $id, \PDO::PARAM_INT);
             $stmtParts->bindValue(":movieId", $part["id"], \PDO::PARAM_INT);
             $stmtParts->execute();
@@ -446,6 +456,8 @@ class MovieStoreDB extends AbstractStore
     }
 
     /**
+     * Returns the files, which are not yet present in the database.
+     *
      * @param string $category
      * @param string $dir
      *
@@ -460,7 +472,8 @@ class MovieStoreDB extends AbstractStore
 				  and CATEGORY = :category";
         $stmt = $db->prepare($sql);
         $files = glob($dir."*.avi");
-        $missing = array();
+        $missing = [];
+
         foreach ($files as $file) {
             $filename = substr($file, strrpos($file, "/") + 1);
             $stmt->bindValue(":filename", $filename, \PDO::PARAM_STR);
@@ -468,6 +481,7 @@ class MovieStoreDB extends AbstractStore
             $stmt->execute();
             $row = $stmt->fetch(\PDO::FETCH_ASSOC);
             $cnt = intval($row["cnt"], 10);
+
             if ($cnt === 0) {
                 $missing[] = $filename;
             }
@@ -517,7 +531,8 @@ class MovieStoreDB extends AbstractStore
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
-        $missing = array();
+        $missing = [];
+
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $missing[] = $row["id"];
         }
@@ -531,12 +546,13 @@ class MovieStoreDB extends AbstractStore
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
-        $obsolete = array();
+        $obsolete = [];
+
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $obsolete[] = $row["id"];
         }
 
-        return array("missing" => $missing, "obsolete" => $obsolete);
+        return ["missing" => $missing, "obsolete" => $obsolete];
     }
 
     /**
@@ -555,17 +571,18 @@ class MovieStoreDB extends AbstractStore
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
-        $movieDBIDS = array();
-        $missing = array();
+        $movieDBIDS = [];
+        $missing = [];
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $movieDBIDS[] = $row["MOVIE_DB_ID"];
             $big = $dir.$row["MOVIE_DB_ID"]."_big.jpg";
+
             if (!file_exists($big)) {
                 $missing[] = $row;
             }
         }
 
-        return array("missing" => $missing, "all" => $movieDBIDS);
+        return ["missing" => $missing, "all" => $movieDBIDS];
     }
 
     /**
@@ -634,5 +651,41 @@ class MovieStoreDB extends AbstractStore
         $collections = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
         return $collections;
+    }
+
+    /**
+     * @param string $category
+     * @param string $filename
+     *
+     * @throws \Exception
+     *
+     * @return int
+     */
+    private function getIdByCategoryAndFilename($category, $filename)
+    {
+        $db = $this->connect();
+
+        $sql = "Select ID
+					From movies
+					Where FILENAME = :filename
+					and CATEGORY = :category";
+        $stmt = $db->prepare($sql);
+        $stmt->bindValue(":filename", $filename, \PDO::PARAM_STR);
+        $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
+        $stmt->execute();
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if ($row !== false) {
+            throw new \Exception('Error getting movie id');
+        }
+
+        return $row["ID"];
+    }
+
+    private function getFiletime($path)
+    {
+        $fileTime = date("Y-m-d", filemtime($path));
+
+        return $fileTime;
     }
 }

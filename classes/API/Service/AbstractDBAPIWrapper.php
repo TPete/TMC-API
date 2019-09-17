@@ -16,7 +16,7 @@ abstract class AbstractDBAPIWrapper
      * @param string $baseUrl
      * @param array  $defaultArgs
      */
-    public function __construct($baseUrl, array $defaultArgs = array())
+    public function __construct($baseUrl, array $defaultArgs = [])
     {
         $this->baseUrl     = $baseUrl;
         $this->defaultArgs = $defaultArgs;
@@ -28,7 +28,7 @@ abstract class AbstractDBAPIWrapper
      *
      * @return mixed
      */
-    protected function curlDownload($url, $args = array())
+    protected function curlDownload($url, $args = [])
     {
         $url = $this->baseUrl.$url;
         $args = array_merge($this->defaultArgs, $args);
@@ -38,6 +38,7 @@ abstract class AbstractDBAPIWrapper
         if (!function_exists('curl_init')) {
             die('Sorry cURL is not installed!');
         }
+
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_HEADER, false);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Accept: application/json"]);
@@ -61,9 +62,11 @@ abstract class AbstractDBAPIWrapper
         curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
         $raw = curl_exec($ch);
         curl_close($ch);
+
         if (file_exists($file)) {
             unlink($file);
         }
+
         $fp = fopen($file, 'x');
         fwrite($fp, $raw);
         fclose($fp);

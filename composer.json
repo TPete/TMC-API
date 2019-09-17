@@ -1,9 +1,13 @@
 {
     "require-dev": {
-      "phpmd/phpmd" : "@stable",
-      "squizlabs/php_codesniffer": "2.*"
+        "phpmd/phpmd" : "@stable",
+        "squizlabs/php_codesniffer": "2.*"
     },
 	"require": {
+        "ext-gd": "*",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-pdo": "*",
         "slim/slim": "3.5",
         "james-heinrich/getid3": "1.9.8",
         "escapestudios/symfony2-coding-standard": "~2.0" 

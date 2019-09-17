@@ -13,6 +13,12 @@ use TinyMediaCenter\API\Service\AbstractDBAPIWrapper;
  */
 class TMDBWrapper extends AbstractDBAPIWrapper
 {
+    const BASE_URL = 'http://api.themoviedb.org/3/';
+
+    const PARAM_API_KEY = 'api_key';
+
+    const PARAM_LANGUAGE = 'language';
+
     /**
      * @var array
      */
@@ -22,11 +28,12 @@ class TMDBWrapper extends AbstractDBAPIWrapper
      * TMDBWrapper constructor.
      *
      * @param string $apiKey
+     * @param string $language
      */
-    public function __construct($apiKey)
+    public function __construct($apiKey, $language)
     {
-        $defaults = array("api_key" => $apiKey, "language" => "de");
-        parent::__construct("http://api.themoviedb.org/3/", $defaults);
+        $defaults = [self::PARAM_API_KEY => $apiKey, self::PARAM_LANGUAGE => $language];
+        parent::__construct(self::BASE_URL, $defaults);
     }
 
     /**
@@ -37,8 +44,8 @@ class TMDBWrapper extends AbstractDBAPIWrapper
     public function downloadPoster($id, $path, $storeDir)
     {
         $this->fetchConfiguration();
-        $url = $this->config["images"]["base_url"]."original".$path;
-        $this->downloadImage($url, $storeDir.$id."_big.jpg");
+        $url = $this->config['images']['base_url'].'original'.$path;
+        $this->downloadImage($url, $storeDir.$id.'_big.jpg');
     }
 
     /**
@@ -50,17 +57,21 @@ class TMDBWrapper extends AbstractDBAPIWrapper
      */
     public function getCollectionInfo($id)
     {
-        $url = "collection/".$id;
+        $url = 'collection/'.$id;
         $data = $this->curlDownload($url);
         $data = json_decode($data, true);
-        if ($data !== null && is_array($data) && isset($data["id"])) {
+
+        if ($data !== null && is_array($data) && isset($data['id'])) {
             return $data;
         }
-        $msg = "Unknown error";
-        if ($data !== null && is_array($data) && isset($data["status_message"])) {
-            $msg = $data["status_message"];
+
+        $msg = 'Unknown error';
+
+        if ($data !== null && is_array($data) && isset($data['status_message'])) {
+            $msg = $data['status_message'];
         }
-        throw new ScrapeException("Failed to retrieve collection info for id ".$id." (".$msg.")");
+
+        throw new ScrapeException('Failed to retrieve collection info for id '.$id.' ('.$msg.')');
     }
 
     /**
@@ -72,64 +83,76 @@ class TMDBWrapper extends AbstractDBAPIWrapper
      *
      * @return MovieModel
      */
-    public function getMovieInfo($id, $movieDir = "", $filename = "")
+    public function getMovieInfo($id, $movieDir = '', $filename = '')
     {
-        $url = "movie/".$id;
-        $args = array("append_to_response" => "credits");
+        $url = 'movie/'.$id;
+        $args = ['append_to_response' => 'credits'];
         $data = $this->curlDownload($url, $args);
         $data = json_decode($data, true);
-        if ($data !== null && is_array($data) && isset($data["id"])) {
-            $tmp = $data["genres"];
-            $genres = array();
+
+        if ($data !== null && is_array($data) && isset($data['id'])) {
+            $tmp = $data['genres'];
+            $genres = [];
+
             foreach ($tmp as $ele) {
-                $genres[] = $ele["name"];
+                $genres[] = $ele['name'];
             }
-            $tmp = $data["production_countries"];
-            $countries = array();
+
+            $tmp = $data['production_countries'];
+            $countries = [];
+
             foreach ($tmp as $ele) {
-                $countries[] = $ele["iso_3166_1"];
+                $countries[] = $ele['iso_3166_1'];
             }
-            $credits = $data["credits"];
-            $tmp = $credits["cast"];
-            $actors = array();
+
+            $credits = $data['credits'];
+            $tmp = $credits['cast'];
+            $actors = [];
+
             foreach ($tmp as $ele) {
-                $actors[] = $ele["name"];
+                $actors[] = $ele['name'];
             }
-            $tmp = $credits["crew"];
-            $director = "";
+
+            $tmp = $credits['crew'];
+            $director = '';
+
             foreach ($tmp as $ele) {
-                if ($ele["job"] === "Director") {
-                    $director = $ele["name"];
+                if ($ele['job'] === 'Director') {
+                    $director = $ele['name'];
                     break;
                 }
             }
-            $collectionId = $data["belongs_to_collection"]["id"];
+
+            $collectionId = $data['belongs_to_collection']['id'];
 
             $movieData = [
-                "id" => $id,
-                "title" => $data["title"],
-                "filename" => $filename,
-                "overview" => $data["overview"],
-                "poster" => $id."_big.jpg",
-                "poster_path" => $data["poster_path"],
-                "release_date" => $data["release_date"],
-                "genres" => $genres,
-                "countries" => $countries,
-                "actors" => $actors,
-                "director" => $director,
-                "collection_id" => $collectionId,
-                "original_title" => $data["original_title"],
+                'id' => $id,
+                'title' => $data['title'],
+                'filename' => $filename,
+                'overview' => $data['overview'],
+                'poster' => $id.'_big.jpg',
+                'poster_path' => $data['poster_path'],
+                'release_date' => $data['release_date'],
+                'genres' => $genres,
+                'countries' => $countries,
+                'actors' => $actors,
+                'director' => $director,
+                'collection_id' => $collectionId,
+                'original_title' => $data['original_title'],
             ];
 
             $mov = new MovieModel($movieData, $movieDir);
 
             return $mov;
         }
-        $msg = "Unknown error";
-        if ($data !== null && is_array($data) && isset($data["status_message"])) {
-            $msg = $data["status_message"];
+
+        $msg = 'Unknown error';
+
+        if ($data !== null && is_array($data) && isset($data['status_message'])) {
+            $msg = $data['status_message'];
         }
-        throw new ScrapeException("Failed to retrieve movie info for id ".$id." (".$msg.")");
+
+        throw new ScrapeException('Failed to retrieve movie info for id '.$id.' ('.$msg.')');
     }
 
     /**
@@ -146,19 +169,20 @@ class TMDBWrapper extends AbstractDBAPIWrapper
      */
     public function searchMovie($title, $filename, $path)
     {
-        $url = "search/movie";
-        $args = array("query" => $title);
+        $url = 'search/movie';
+        $args = ['query' => $title];
 
         $data = $this->curlDownload($url, $args);
         $data = json_decode($data, true);
-        if (isset($data["results"][0])) {
-            $id = $data["results"][0]["id"];
+
+        if (isset($data['results'][0])) {
+            $id = $data['results'][0]['id'];
             $result = $this->getMovieInfo($id, $path, $filename);
 
             return $result;
         }
 
-        throw new ScrapeException("Failed to retrieve movie info for title ".$title." (No data available)");
+        throw new ScrapeException('Failed to retrieve movie info for title '.$title.' (No data available)');
     }
 
     /**
@@ -166,7 +190,7 @@ class TMDBWrapper extends AbstractDBAPIWrapper
      */
     private function fetchConfiguration()
     {
-        $url = "configuration";
+        $url = 'configuration';
         $tmp = $this->curlDownload($url);
         $this->config = json_decode($tmp, true);
     }

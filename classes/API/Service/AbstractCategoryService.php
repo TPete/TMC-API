@@ -8,45 +8,14 @@ namespace TinyMediaCenter\API\Service;
 abstract class AbstractCategoryService
 {
     /**
-     * @var string
+     * Get categories.
      */
-    protected $path;
-
-    /**
-     * @var string
-     */
-    protected $alias;
-
-    /**
-     * @var AbstractStore
-     */
-    protected $store;
-
-    /**
-     * @var AbstractDBAPIWrapper
-     */
-    protected $scraper;
-
-    /**
-     * Controller constructor.
-     *
-     * @param string               $path
-     * @param string               $alias
-     * @param AbstractStore        $store
-     * @param AbstractDBAPIWrapper $scraper
-     */
-    public function __construct($path, $alias, AbstractStore $store, AbstractDBAPIWrapper $scraper)
-    {
-        $this->path = $path;
-        $this->alias = $alias;
-        $this->store = $store;
-        $this->scraper = $scraper;
-    }
+    abstract public function getCategories();
 
     /**
      * Get categories.
      */
-    abstract public function getCategories();
+    abstract public function getCategoryNames();
 
     /**
      * Update data.
@@ -59,11 +28,12 @@ abstract class AbstractCategoryService
      *
      * @return array
      */
-    public function getFolders($path, $exclude = array())
+    protected function getFolders($path, $exclude = [])
     {
         $elements = scandir($path);
-        $folders = array();
-        $exc = array_merge($exclude, array(".", "..", "\$RECYCLE.BIN", "System Volume Information"));
+        $folders = [];
+        $exc = array_merge($exclude, ['.', '..', '$RECYCLE.BIN', 'System Volume Information']);
+
         foreach ($elements as $ele) {
             if (!in_array($ele, $exc)) {
                 if (is_dir($path.$ele)) {
