@@ -128,4 +128,28 @@ abstract class AbstractCategoryService
 
         return true;
     }
+
+    /**
+     * @param array $protocol
+     *
+     * @return bool
+     */
+    protected function isMaintenanceSuccessful(array $protocol)
+    {
+        return array_reduce($protocol, function ($carry, $row) {
+            return $carry && $row['success'];
+        }, true);
+    }
+
+    /**
+     * @param array $protocol
+     *
+     * @return array
+     */
+    protected function getMaintenanceErrors(array $protocol)
+    {
+        return array_filter(array_map(function ($row) {
+            return !$row['success'] ? $row['error'] : null;
+        }, $protocol));
+    }
 }

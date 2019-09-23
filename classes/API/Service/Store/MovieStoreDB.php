@@ -424,7 +424,7 @@ class MovieStoreDB extends AbstractStore
      * @param string $category
      * @param int    $dir
      *
-     * @return string
+     * @return array
      */
     public function checkRemovedFiles($category, $dir)
     {
@@ -445,9 +445,10 @@ class MovieStoreDB extends AbstractStore
         $sql = "Delete From movies
 				Where ID = :id";
         $stmt = $db->prepare($sql);
-        $protocol = "";
+        $protocol = [];
+
         foreach ($list as $toRemove) {
-            $protocol .= "Removing ".$toRemove["FILENAME"]."<br>";
+            $protocol[] = $toRemove["FILENAME"];
             $stmt->bindValue(":id", $toRemove["ID"], \PDO::PARAM_INT);
             $stmt->execute();
         }
@@ -497,6 +498,7 @@ class MovieStoreDB extends AbstractStore
      */
     public function checkDuplicates($category)
     {
+        //TODO maybe use api id?
         $db = $this->connect();
         $sql = "Select Title
 				From movies
@@ -561,7 +563,7 @@ class MovieStoreDB extends AbstractStore
      *
      * @return array
      */
-    public function getMissingPics($category, $dir)
+    public function getMissingPictures($category, $dir)
     {
         $sql = "Select ID, MOVIE_DB_ID
 				From movies
@@ -571,11 +573,13 @@ class MovieStoreDB extends AbstractStore
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
+
         $movieDBIDS = [];
         $missing = [];
+
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $movieDBIDS[] = $row["MOVIE_DB_ID"];
-            $big = $dir.$row["MOVIE_DB_ID"]."_big.jpg";
+            $big = sprintf('%s%s_big.jpg', $dir, $row["MOVIE_DB_ID"]);
 
             if (!file_exists($big)) {
                 $missing[] = $row;

@@ -157,7 +157,7 @@ class ShowStoreDB extends AbstractStore
      * @param string $category
      * @param string $folder
      *
-     * @return string
+     * @return string|null
      */
     public function createIfMissing($category, $folder)
     {
@@ -170,6 +170,7 @@ class ShowStoreDB extends AbstractStore
         $stmt->bindValue(":folder", $folder, \PDO::PARAM_STR);
         $stmt->execute();
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
         if ($row["cnt"] === "0") {
             $title = str_replace("-", " ", $folder);
             $sql = "Insert into shows(category, folder, title, ordering_scheme)
@@ -180,21 +181,20 @@ class ShowStoreDB extends AbstractStore
             $stmt->bindValue(":title", $title, \PDO::PARAM_STR);
             $stmt->execute();
 
-            return "Added ".$folder."<br>";
+            return $folder;
         }
 
-        return "";
+        return null;
     }
 
     /**
      * @param string $category
      * @param array  $folders
      *
-     * @return string
+     * @return array
      */
     public function removeIfObsolete($category, $folders)
     {
-        $protocol = "";
         $db = $this->connect();
         $sql = "Select folder
 				From shows
@@ -208,11 +208,13 @@ class ShowStoreDB extends AbstractStore
 				Where category = :category and folder = :folder";
         $stmtShows = $db->prepare($sqlShows);
         $stmtShows->bindValue(":category", $category, \PDO::PARAM_STR);
+        $protocol = [];
+
         foreach ($dbFolders as $row) {
             if (!in_array($row["folder"], $folders)) {
                 $stmtShows->bindValue(":folder", $row["folder"], \PDO::PARAM_STR);
                 $stmtShows->execute();
-                $protocol .= "Removed ".$row["folder"]."<br>";
+                $protocol[] = $row["folder"];
             }
         }
 

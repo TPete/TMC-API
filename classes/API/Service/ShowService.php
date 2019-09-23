@@ -65,13 +65,7 @@ class ShowService extends AbstractCategoryService
      */
     public function getCategories()
     {
-        $categories = [];
-
-        foreach ($this->getCategoryNames() as $name) {
-            $categories["shows/".$name."/"] = $name;
-        }
-
-        return $categories;
+        return $this->getCategoryNames();
     }
 
     /**
@@ -220,13 +214,16 @@ class ShowService extends AbstractCategoryService
      */
     public function updateData()
     {
-        $protocol = "";
+        $protocol = [];
 
         foreach ($this->getCategoryNames() as $category) {
-            $protocol .= $this->maintenance($category);
+            $protocol[] = [
+                'type' => 'show_maintenance',
+                'attributes' => $this->maintenance($category),
+            ];
         }
 
-        return ["result" => "Ok", "protocol" => $protocol];
+        return $protocol;
     }
 
     /**
@@ -327,40 +324,59 @@ class ShowService extends AbstractCategoryService
     /**
      * @param string $category
      *
-     * @return string
+     * @return array
      */
     private function maintenance($category)
     {
-        $protocol = "";
-        $protocol .= "<h2>Maintenance ".$category."</h2>";
-        $protocol .= "<h3>Check missing show entries (new shows)</h3>";
-        $protocol .= $this->addMissingShows($category);
+        $steps = [];
+        $protocol = $this->addMissingShows($category);
+        $steps[] = [
+            'description' => 'Check missing show entries (new shows)',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
+        $protocol = $this->removeObsoleteShows($category);
+        $steps[] = [
+            'description' => 'Check obsolete show entries (removed shows)',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
+        $protocol = $this->updateEpisodes($category, $this->showStoreDB->getShows($category));
+        $steps[] = [
+            'description' => 'Update episodes',
+            'protocol' => $protocol,
+            'success' => $this->isMaintenanceSuccessful($protocol),
+            'errors' => $this->getMaintenanceErrors($protocol),
+        ];
+        $protocol = $this->updateThumbs($category, $this->getFoldersByCategory($category));
+        $steps[] = [
+            'description' => 'Update thumbnails',
+            'protocol' => $protocol,
+            'success' => $this->isMaintenanceSuccessful($protocol),
+            'errors' => $this->getMaintenanceErrors($protocol),
+        ];
 
-        $protocol .= "<h3>Check obsolete show entries (removed shows)</h3>";
-        $protocol .= $this->removeObsoleteShows($category);
-
-        $protocol .= "<h3>Update episodes</h3>";
-        $shows = $this->showStoreDB->getShows($category);
-        $protocol .= $this->updateEpisodes($category, $shows);
-
-        $protocol .= "<h3>Update thumbnails</h3>";
-        $folders = $this->getFoldersByCategory($category);
-        $protocol .= $this->updateThumbs($category, $folders);
-
-        return $protocol;
+        return $maintenance = [
+            'category' => $category,
+            'steps' => $steps,
+        ];
     }
 
     /**
      * @param string $category
      *
-     * @return string
+     * @return array
      */
     private function addMissingShows($category)
     {
-        $protocol = "";
+        $protocol = [];
 
         foreach ($this->getFoldersByCategory($category) as $folder) {
-            $protocol .= $this->showStoreDB->createIfMissing($category, $folder);
+            $added = $this->showStoreDB->createIfMissing($category, $folder);
+
+            if (!empty($added)) {
+                $protocol[] = $added;
+            }
         }
 
         return $protocol;
@@ -369,7 +385,7 @@ class ShowService extends AbstractCategoryService
     /**
      * @param string $category
      *
-     * @return mixed
+     * @return array
      */
     private function removeObsoleteShows($category)
     {
@@ -382,15 +398,18 @@ class ShowService extends AbstractCategoryService
      * @param string $category
      * @param array  $shows
      *
-     * @return string
+     * @return array
      */
     private function updateEpisodes($category, $shows)
     {
-        $protocol = "";
+        $protocol = [];
 
         foreach ($shows as $show) {
             try {
-                $protocol .= "Updating ".$show["title"]." ... ";
+                $showProtocol = [
+                    'object' => $show['title'],
+                    'success' => false,
+                ];
 
                 if ($show["tvdb_id"] === null) {
                     $search = urlencode($show["title"]);
@@ -403,24 +422,22 @@ class ShowService extends AbstractCategoryService
                 $path .= $show["folder"]."/bg.jpg";
 
                 if (!file_exists($path)) {
-                    $protocol .= "Getting bakground image ... ";
                     $this->ttvdbWrapper->downloadBG($show["tvdb_id"], $path);
                 }
 
-                $protocol .= "Scraping ... ";
                 $seasons = $this->ttvdbWrapper->getSeriesInfoById($show["tvdb_id"], $show["ordering_scheme"], $show["lang"]);
 
                 if (count($seasons) > 0) {
                     $this->showStoreDB->updateEpisodes($show["id"], $seasons);
-                    $protocol .= "Done";
+                    $showProtocol['success'] = true;
                 } else {
-                    $protocol .= "Scraping failed (check ID): No data";
+                    $showProtocol['error'] = "Scraping failed (check ID): No data";
                 }
             } catch (ScrapeException $e) {
-                $protocol .= "Scraping failed (check ID): ".$e->getMessage();
+                $showProtocol['error'] = sprintf("Scraping failed (check ID): %s", $e->getMessage());
             }
 
-            $protocol .= "<br>";
+            $protocol[] = $showProtocol;
         }
 
         return $protocol;
@@ -430,28 +447,31 @@ class ShowService extends AbstractCategoryService
      * @param string $category
      * @param array  $folders
      *
-     * @return string
+     * @return array
      */
     private function updateThumbs($category, $folders)
     {
-        $protocol = "";
+        $protocol = [];
         $basePath = $this->getCategoryPath($category);
 
         foreach ($folders as $folder) {
             $path = $basePath.$folder."/";
-            $protocol .= $path;
+            $folderProtocol = [
+                'object' => $folder,
+                'success' => true,
+            ];
             $dim = 512;
 
             if (!file_exists($path."thumb.jpg")) {
                 if (file_exists($path."bg.jpg")) {
                     $this->resizeImage($path."bg.jpg", $path."thumb.jpg", $dim, $dim);
-                    $protocol .= "done";
                 } else {
-                    $protocol .= "Failed to create thumbnail: no background image.";
+                    $folderProtocol['success'] = false;
+                    $folderProtocol['error'] = "Failed to create thumbnail: no background image.";
                 }
             }
 
-            $protocol .= "<br>";
+            $protocol[] = $folderProtocol;
         }
 
         return $protocol;

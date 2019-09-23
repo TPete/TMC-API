@@ -12,8 +12,12 @@ use TinyMediaCenter\API\Service\Store\MovieStoreDB;
 class MovieService extends AbstractCategoryService
 {
     const DEFAULT_CATEGORY = "Filme";
-
     const PICTURES_FOLDER = 'pictures';
+
+    const THUMBNAIL_WIDTH = 333;
+    const THUMBNAIL_HEIGHT = 500;
+    const THUMBNAIL_SUFFIX = '_333x500';
+    const FULL_IMAGE_SUFFIX = '_big';
 
     /**
      * @var MovieStoreDB
@@ -66,13 +70,7 @@ class MovieService extends AbstractCategoryService
      */
     public function getCategories()
     {
-        $categories = [];
-
-        foreach ($this->getCategoryNames() as $name) {
-            $categories["movies/".$name."/"] = $name;
-        }
-
-        return $categories;
+        return $this->getCategoryNames();
     }
 
     /**
@@ -233,7 +231,7 @@ class MovieService extends AbstractCategoryService
     /**
      * @param string $category
      *
-     * @return mixed
+     * @return array
      */
     public function getCollections($category)
     {
@@ -245,110 +243,89 @@ class MovieService extends AbstractCategoryService
      */
     public function updateData()
     {
-        $protocol = "";
+        $protocol = [];
 
         foreach ($this->getCategoryNames() as $category) {
-            $protocol .= $this->maintenance($category);
+            $protocol[] = [
+                'type' => 'movie_maintenance',
+                'attributes' => $this->maintenance($category),
+            ];
         }
 
-        return ["result" => "Ok", "protocol" => $protocol];
+        return $protocol;
     }
 
     /**
      * @param string $category
      *
-     * @return string
+     * @return array
      */
     public function maintenance($category)
     {
         $path = $this->getCategoryPath($category);
+        $picturePath = $this->getPicturePath($category);
 
-        $protocol = "<h1>Maintenance ".$category."<small>".$path."</small></h1>";
-        $protocol .= "<h2>Duplicate movie files</h2>";
+        $steps = [];
+        $protocol = $this->checkDuplicateFiles($path);
+        $steps[] = [
+            'description' => 'Possibly duplicate movie files',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
+        $protocol = $this->movieStoreDB->checkDuplicates($category);
+        $steps[] = [
+            'description' => 'Duplicate movie entries',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
+        $protocol = $this->addMissingMovieEntries($category, $path);
+        $steps[] = [
+            'description' => 'Missing movie entries (new movies)',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
+        $protocol = $this->movieStoreDB->checkRemovedFiles($category, $path);
+        $steps[] = [
+            'description' => 'Obsolete movie entries',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
+        $protocol = $this->addMissingCollectionEntries($category);
+        $steps[] = [
+            'description' => 'Missing collection entries',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
+        $protocol = $this->removeObsoleteCollectionEntries($category);
+        $steps[] = [
+            'description' => 'Obsolete collection entries',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
+        $protocol = $this->addMissingMoviePictures($category, $picturePath);
+        $steps[] = [
+            'description' => 'Missing movie pictures',
+            'protocol' => $protocol,
+            'success' => $this->isMaintenanceSuccessful($protocol),
+            'errors' => $this->getMaintenanceErrors($protocol),
+        ];
+        $protocol = $this->removeObsoleteMoviePictures($category, $picturePath);
+        $steps[] = [
+            'description' => 'Obsolete movie pictures',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
+        $protocol = $this->createMovieThumbnails($picturePath);
+        $steps[] = [
+            'description' => 'Creating movie thumbnails',
+            'protocol' => $protocol,
+            'success' => true,
+        ];
 
-        $pp = $this->getPicturePath($category);
-        $res = $this->checkDuplicateFiles($path);
-
-        if (0 === count($res)) {
-            $protocol .= "none";
-        }
-
-        foreach ($res as $movie) {
-            $protocol .= $movie."<br>";
-        }
-
-        $protocol .= "<h2>Duplicate movie entries</h2>";
-        $res = $this->movieStoreDB->checkDuplicates($category);
-
-        if (0 === count($res)) {
-            $protocol .= "none";
-        }
-
-        foreach ($res as $movie) {
-            $protocol .= $movie."<br>";
-        }
-
-        $missing = $this->movieStoreDB->checkExisting($category, $path);
-        $protocol .= "<h2>Missing movie entries (new movies)</h2>";
-
-        if (0 === count($missing)) {
-            $protocol .= "none";
-        }
-
-        foreach ($missing as $filename) {
-            $title = $this->getMovieTitle($filename);
-            $protocol .= $title." (File: ".$filename.")<br>";
-            $protocol .= $this->searchMovie($category, $title, $filename);
-            $protocol .= "<br>";
-        }
-
-        $protocol .= "<h2>Obsolete movie entries</h2>";
-        $protocol .= $this->movieStoreDB->checkRemovedFiles($category, $path);
-
-        $protocol .= "<h2>Missing collection entries</h2>";
-        $res = $this->movieStoreDB->checkCollections($category);
-
-        if (0 === count($res['missing'])) {
-            $protocol .= "none";
-        }
-
-        foreach ($res["missing"] as $miss) {
-            $col = $this->updateCollectionFromScraper($category, $miss);
-            $protocol .= $col;
-            $protocol .= "<br>";
-        }
-
-        $protocol .= "<h2>Obsolete collection entries</h2>";
-
-        if (0 === count($res['obsolete'])) {
-            $protocol .= "none";
-        }
-
-        foreach ($res["obsolete"] as $obs) {
-            $protocol .= $obs;
-            $protocol .= $this->removeObsoleteCollection($obs);
-            $protocol .= "<br>";
-        }
-
-        $protocol .= "<h2>Fetching missing Movie Pics</h2>";
-        $res = $this->movieStoreDB->getMissingPics($category, $pp);
-
-        if (0 === count($res['missing'])) {
-            $protocol .= "none";
-        }
-
-        foreach ($res["missing"] as $miss) {
-            $protocol .= "fetching ".$miss["MOVIE_DB_ID"]."<br>";
-            $protocol .= $this->downloadMoviePic($pp, $miss["MOVIE_DB_ID"]);
-        }
-
-        $protocol .= "<h2>Remove obsolete Movie Pics</h2>";
-        $protocol .= $this->removeObsoletePics($res["all"], $pp);
-
-        $protocol .= "<h2>Resizing images</h2>";
-        $this->resizeMoviePics($pp);
-
-        return $protocol;
+        return $maintenance = [
+            'category' => $category,
+            'steps' => $steps,
+        ];
     }
 
     /**
@@ -469,8 +446,8 @@ class MovieService extends AbstractCategoryService
     {
         if ($movie !== null) {
             $picturePath = $this->getPicturePath($category);
-            $this->downloadMoviePic($picturePath, $movie->getId());
-            $this->resizeMoviePics($picturePath);
+            $this->downloadMoviePicture($picturePath, $movie->getId());
+            $this->createMovieThumbnails($picturePath);
 
             $this
                 ->movieStoreDB
@@ -502,17 +479,16 @@ class MovieService extends AbstractCategoryService
     }
 
     /**
-     * @param string $picturePath
+     * @param string $pictureDir
      * @param int    $id
      *
      * @return string
      */
-    private function downloadMoviePic($picturePath, $id)
+    private function downloadMoviePicture($pictureDir, $id)
     {
         try {
             $poster = $this->movieApi->getMoviePoster($id);
-
-            $file = $picturePath.$id.'_big.jpg';
+            $file = $this->getFullImageFilename($pictureDir, $id);
 
             if (file_exists($file)) {
                 unlink($file);
@@ -529,28 +505,69 @@ class MovieService extends AbstractCategoryService
     }
 
     /**
-     * @param string $picsDir
+     * @param string $pictureDir
+     *
+     * @return array
+     */
+    private function getAllPictures($pictureDir)
+    {
+        return glob(sprintf('%s*%s.jpg', $pictureDir, self::FULL_IMAGE_SUFFIX));
+    }
+
+    /**
+     * @param string $pictureDir
+     * @param string $id
      *
      * @return string
      */
-    private function resizeMoviePics($picsDir)
+    private function getFullImageFilename($pictureDir, $id)
     {
-        $images = $this->globRecursive($picsDir."*big.jpg");
-        $protocol = "";
+        return sprintf('%s%s%s.jpg', $pictureDir, $id, self::FULL_IMAGE_SUFFIX);
+    }
 
-        foreach ($images as $image) {
-            $id = substr($image, strrpos($image, "/") + 1);
-            $id = substr($id, 0, strpos($id, "_"));
+    /**
+     * @param string $pictureDir
+     * @param string $id
+     *
+     * @return string
+     */
+    private function getThumbnailFilename($pictureDir, $id)
+    {
+        return sprintf('%s%s%s.jpg', $pictureDir, $id, self::THUMBNAIL_SUFFIX);
+    }
 
-            $dest = $picsDir.$id."_big.jpg";
-            $target = $picsDir.$id."_333x500.jpg";
+    /**
+     * @param string $file
+     * @param string $pictureDir
+     *
+     * @return string
+     */
+    private function getIdFromPictureFilename($file, $pictureDir)
+    {
+        $id = substr($file, strlen($pictureDir));
 
-            if (file_exists($target)) {
-                continue;
+        return substr($id, 0, strpos($id, "_"));
+    }
+
+    /**
+     * @param string $pictureDir
+     *
+     * @return array
+     */
+    private function createMovieThumbnails($pictureDir)
+    {
+        $pictures = $this->getAllPictures($pictureDir);
+        $protocol = [];
+
+        foreach ($pictures as $picture) {
+            $id = $this->getIdFromPictureFilename($picture, $pictureDir);
+            $dest = $this->getFullImageFilename($pictureDir, $id);
+            $target = $this->getThumbnailFilename($pictureDir, $id);
+
+            if (!file_exists($target)) {
+                $protocol[] = sprintf('%s -> %s', $dest, $target);
+                $this->resizeImage($dest, $target, self::THUMBNAIL_WIDTH, self::THUMBNAIL_HEIGHT);
             }
-
-            $protocol .= $dest." - ".$target."<br>";
-            $this->resizeImage($dest, $target, 333, 500);
         }
 
         return $protocol;
@@ -560,34 +577,66 @@ class MovieService extends AbstractCategoryService
      * Remove obsolete pictures.
      *
      * @param array  $movieDBIDS
-     * @param string $picsDir
+     * @param string $pictureDir
      *
-     * @return string
+     * @return array
      */
-    private function removeObsoletePics($movieDBIDS, $picsDir)
+    private function removeObsoletePictures($movieDBIDS, $pictureDir)
     {
-        $files = glob($picsDir."*_big.jpg");
-
-        $protocol = "";
+        $files = $this->getAllPictures($pictureDir);
+        $protocol = [];
 
         foreach ($files as $file) {
-            $id = substr($file, strlen($picsDir));
-            $id = substr($id, 0, strpos($id, "_"));
+            $id = $this->getIdFromPictureFilename($file, $pictureDir);
 
-            if (in_array($id, $movieDBIDS)) {
-                continue;
-            } else {
-                $protocol .= "removing ".$id."<br>";
+            if (!in_array($id, $movieDBIDS)) {
+                $protocol[] = $id;
                 unlink($file);
-                $small = $picsDir.$id."_333x500.jpg";
+                $thumbnail = $this->getThumbnailFilename($pictureDir, $id);
 
-                if (file_exists($small)) {
-                    unlink($small);
+                if (file_exists($thumbnail)) {
+                    unlink($thumbnail);
                 }
             }
         }
 
         return $protocol;
+    }
+
+    /**
+     * @param string $category
+     * @param string $pictureDir
+     *
+     * @return array
+     */
+    private function addMissingMoviePictures($category, $pictureDir)
+    {
+        $res = $this->movieStoreDB->getMissingPictures($category, $pictureDir);
+        $protocol = [];
+
+        foreach ($res["missing"] as $miss) {
+            $result = $this->downloadMoviePicture($pictureDir, $miss["MOVIE_DB_ID"]);
+            $protocol[] = [
+                'object' => $miss["MOVIE_DB_ID"],
+                'success' => $result === 'OK',
+                'errors' => $result === 'OK' ? null : $result,
+            ];
+        }
+
+        return $protocol;
+    }
+
+    /**
+     * @param string $category
+     * @param string $pictureDir
+     *
+     * @return array
+     */
+    private function removeObsoleteMoviePictures($category, $pictureDir)
+    {
+        $res = $this->movieStoreDB->getMissingPictures($category, $pictureDir);
+
+        return $this->removeObsoletePictures($res["all"], $pictureDir);
     }
 
     /**
@@ -619,6 +668,66 @@ class MovieService extends AbstractCategoryService
         }
 
         return $result;
+    }
+
+    /**
+     * @param string $category
+     * @param string $path
+     *
+     * @return array
+     */
+    private function addMissingMovieEntries($category, $path)
+    {
+        $missing = $this->movieStoreDB->checkExisting($category, $path);
+        $protocol = [];
+
+        foreach ($missing as $filename) {
+            $title = $this->getMovieTitle($filename);
+            $result = $this->searchMovie($category, $title, $filename);
+            $protocol = [
+                'object' => $filename,
+                'title' => $title,
+                'success' => substr($result, 0, 2) === 'OK', //TODO
+                'result' => $result,
+            ];
+        }
+
+        return $protocol;
+    }
+
+    /**
+     * @param string $category
+     *
+     * @return array
+     */
+    private function addMissingCollectionEntries($category)
+    {
+        $res = $this->movieStoreDB->checkCollections($category);
+        $protocol = [];
+
+        foreach ($res["missing"] as $miss) {
+            $protocol[] = $this->updateCollectionFromScraper($category, $miss);
+        }
+
+        return $protocol;
+    }
+
+    /**
+     * @param string $category
+     *
+     * @return array|string
+     */
+    private function removeObsoleteCollectionEntries($category)
+    {
+        $res = $this->movieStoreDB->checkCollections($category);
+        $protocol = [];
+
+        foreach ($res["obsolete"] as $obs) {
+            $protocol[] = $obs;
+            $this->movieStoreDB->removeObsoleteCollection($obs);
+        }
+
+        return $protocol;
     }
 
     /**
@@ -659,13 +768,5 @@ class MovieService extends AbstractCategoryService
         }
 
         return $collectionStr;
-    }
-
-    /**
-     * @param int $collectionId
-     */
-    private function removeObsoleteCollection($collectionId)
-    {
-        $this->movieStoreDB->removeObsoleteCollection($collectionId);
     }
 }
