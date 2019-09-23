@@ -2,6 +2,7 @@
 
 namespace TinyMediaCenter\API\Controller;
 
+use Psr\Http\Message\ResponseInterface;
 use Slim\Http\Request;
 use Slim\Http\Response;
 use TinyMediaCenter\API\Service\MovieService;
@@ -40,7 +41,7 @@ class CategoryController extends AbstractController
      *
      * @throws \Exception
      *
-     * @return Response
+     * @return ResponseInterface
      */
     public function indexAction(Request $request, Response $response)
     {
@@ -51,11 +52,24 @@ class CategoryController extends AbstractController
         //which will be listed as a single category
         //TODO: make this consistent and/or more flexible
 
-        $categories = [
-            'shows' => $this->showService->getCategories(),
-            'movies' => $this->movieService->getCategories(),
-        ];
+        return $response->withJson([
+            'data' => [
+                [
+                    'type' => 'category',
+                    'id' => 'shows',
+                    'attributes' => [
+                        'subCategories' => $this->showService->getCategories(),
+                    ]
+                ],
+                [
+                    'type' => 'category',
+                    'id' => 'movies',
+                    'attributes' => [
+                        'subCategories' => $this->movieService->getCategories(),
+                    ]
 
-        return $response->withJson($categories);
+                ]
+            ]
+        ]);
     }
 }

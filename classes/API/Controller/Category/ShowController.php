@@ -66,11 +66,12 @@ class ShowController extends AbstractController
      * @param Request  $request
      * @param Response $response
      * @param string   $category
+     * @param string   $show
      * @param string   $episode
      *
      * @return Response
      */
-    public function episodesAction(Request $request, Response $response, $category, $episode)
+    public function episodesAction(Request $request, Response $response, $category, $show, $episode)
     {
         try {
             $result = $this->showService->getEpisodeDescription($category, $episode);
