@@ -8,9 +8,11 @@
         "ext-curl": "*",
         "ext-json": "*",
         "ext-pdo": "*",
+        "ext-simplexml": "*",
+        "ext-libxml": "*",
         "slim/slim": "3.5",
         "james-heinrich/getid3": "1.9.8",
-        "escapestudios/symfony2-coding-standard": "~2.0" 
+        "escapestudios/symfony2-coding-standard": "~2.0",
     },
     "autoload": {
         "psr-4": {"TinyMediaCenter\\": "classes/"}

@@ -1,15 +1,14 @@
 <?php
 
-namespace TinyMediaCenter\API\Model\Movie\Api;
+namespace TinyMediaCenter\API\Model\Resource\Movie\Api;
 
-use TinyMediaCenter\API\Model\Movie\AbstractMovieModel;
+use TinyMediaCenter\API\Model\Resource\Movie\AbstractMovieModel;
 
 /**
  * Class TheMovieDbModel
  */
 class TheMovieDbModel extends AbstractMovieModel
 {
-
     const KEY_ID = 'id';
 
     const KEY_TITLE = 'title';
@@ -41,56 +40,6 @@ class TheMovieDbModel extends AbstractMovieModel
     const JOB_DIRECTOR = 'Director';
 
     /**
-     * @var string
-     */
-    private $id;
-
-    /**
-     * @var string
-     */
-    private $title;
-
-    /**
-     * @var string
-     */
-    private $originalTitle;
-
-    /**
-     * @var string
-     */
-    private $overview;
-
-    /**
-     * @var \DateTime
-     */
-    private $releaseDate;
-
-    /**
-     * @var array
-     */
-    private $genres;
-
-    /**
-     * @var array
-     */
-    private $countries;
-
-    /**
-     * @var array
-     */
-    private $directors;
-
-    /**
-     * @var array
-     */
-    private $actors;
-
-    /**
-     * @var string
-     */
-    private $collectionId;
-
-    /**
      * TheMovieDbModel constructor.
      *
      * @param array $data
@@ -113,86 +62,6 @@ class TheMovieDbModel extends AbstractMovieModel
         $this->directors = $this->parseDirectors($data[self::KEY_CREDITS]);
         $this->actors = $this->parseActors($data[self::KEY_CREDITS]);
         $this->collectionId = $this->parseCollectionInfo($data[self::KEY_COLLECTION_INFO]);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getId()
-    {
-        return $this->id;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getTitle()
-    {
-        return $this->title;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getOriginalTitle()
-    {
-        return $this->originalTitle;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getOverview()
-    {
-        return $this->overview;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getReleaseDate()
-    {
-        return $this->releaseDate;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getGenres()
-    {
-        return $this->genres;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDirectors()
-    {
-        return $this->directors;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getActors()
-    {
-        return $this->actors;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getCountries()
-    {
-        return $this->countries;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getCollectionId()
-    {
-        return $this->collectionId;
     }
 
     /**

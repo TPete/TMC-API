@@ -4,6 +4,8 @@ namespace TinyMediaCenter\API\Model;
 
 /**
  * Class Movie.
+ *
+ * @deprecated
  */
 class MovieModel
 {

@@ -5,8 +5,9 @@ namespace TinyMediaCenter\API\Controller;
 use Psr\Http\Message\ResponseInterface;
 use Slim\Http\Request;
 use Slim\Http\Response;
+use Slim\Interfaces\RouterInterface;
 use TinyMediaCenter\API\Service\MovieService;
-use TinyMediaCenter\API\Service\ShowService;
+use TinyMediaCenter\API\Service\SeriesService;
 
 /**
  * Class CategoryController
@@ -14,7 +15,7 @@ use TinyMediaCenter\API\Service\ShowService;
 class CategoryController extends AbstractController
 {
     /**
-     * @var ShowService
+     * @var SeriesService
      */
     private $showService;
 
@@ -24,15 +25,22 @@ class CategoryController extends AbstractController
     private $movieService;
 
     /**
+     * @var RouterInterface
+     */
+    private $router;
+
+    /**
      * CategoryController constructor.
      *
-     * @param ShowService  $showService
-     * @param MovieService $movieService
+     * @param SeriesService   $showService
+     * @param MovieService    $movieService
+     * @param RouterInterface $router
      */
-    public function __construct(ShowService $showService, MovieService $movieService)
+    public function __construct(SeriesService $showService, MovieService $movieService, RouterInterface $router)
     {
         $this->showService = $showService;
         $this->movieService = $movieService;
+        $this->router = $router;
     }
 
     /**
@@ -52,24 +60,25 @@ class CategoryController extends AbstractController
         //which will be listed as a single category
         //TODO: make this consistent and/or more flexible
 
+        //TODO Use models for service returns
         return $response->withJson([
-            'data' => [
-                [
-                    'type' => 'category',
-                    'id' => 'shows',
-                    'attributes' => [
-                        'subCategories' => $this->showService->getCategories(),
-                    ]
+            'meta' => [
+                'description' => 'The API has several main areas. Find further information in the "links" entry.',
+                'links' => [
+                    'series' => [
+                        'href' => $this->router->pathFor('app.series.index'),
+                        'meta' => [
+                            'description' => 'TV series',
+                        ],
+                    ],
+                    'movies' => [
+                        'href' => $this->router->pathFor('app.movies.index'),
+                        'meta' => [
+                            'description' => 'Movies',
+                        ],
+                    ],
                 ],
-                [
-                    'type' => 'category',
-                    'id' => 'movies',
-                    'attributes' => [
-                        'subCategories' => $this->movieService->getCategories(),
-                    ]
-
-                ]
-            ]
+            ],
         ]);
     }
 }

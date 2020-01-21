@@ -33,7 +33,10 @@ abstract class AbstractDBAPIWrapper
         $url = $this->baseUrl.$url;
         $args = array_merge($this->defaultArgs, $args);
         $argStr = http_build_query($args);
-        $url .= "?".$argStr;
+
+        if (!empty($argStr)) {
+            $url .= "?".$argStr;
+        }
 
         if (!function_exists('curl_init')) {
             die('Sorry cURL is not installed!');

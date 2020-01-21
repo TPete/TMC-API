@@ -3,10 +3,12 @@
 namespace TinyMediaCenter\API\Service\Store;
 
 use TinyMediaCenter\API\Model\MediaFileInfoModel;
-use TinyMediaCenter\API\Model\Movie\CollectionModelInterface;
-use TinyMediaCenter\API\Model\Movie\MovieModelInterface;
+use TinyMediaCenter\API\Model\Resource\Movie\CollectionModelInterface;
+use TinyMediaCenter\API\Model\Resource\Movie\MovieModel;
+use TinyMediaCenter\API\Model\Resource\Movie\MovieModelInterface;
 use TinyMediaCenter\API\Model\DBModel;
 use TinyMediaCenter\API\Service\AbstractStore;
+use TinyMediaCenter\API\Service\MovieService;
 
 /**
  * Class MovieStoreDB
@@ -32,16 +34,16 @@ class MovieStoreDB extends AbstractStore
      * @param string $genres
      * @param int    $cnt
      * @param int    $offset
+     * @param string $alias
      *
      * @return array
      */
-    public function getMovies($category, $sort, $order, $filter, $genres, $cnt, $offset)
+    public function getMovies($category, $sort, $order, $filter, $genres, $cnt, $offset, $alias)
     {
         $db = $this->connect();
         $sqlCols = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
 						mov.countries, mov.actors, mov.director, mov.info, mov.original_title, 
 						mov.title_sort, mov.added_date, mov.release_date, mov.collection_id, ifnull(col.name, '') collection_name";
-        $sqlCnt = "Select count(*) Cnt";
         $sql = "
 				From movies mov
 				Left Join (
@@ -87,10 +89,6 @@ class MovieStoreDB extends AbstractStore
             $whereActors = substr($whereActors, 0, -4);
             $whereDirector = substr($whereDirector, 0, -4);
 
-            $sqlCnt = $sqlCnt.$sql."
-						and (".$whereTitle." or ".$whereTitleSort." or ".$whereOriginalTitle."
-							or ".$whereActors." or ".$whereDirector.")";
-
             $sqlAll = $sqlCols.", 1 sorter, levenshtein(mov.TITLE, '".$filter."') dist ".$sql." and ".$whereTitle;
             $sqlAll .= "
 					 Union ";
@@ -105,45 +103,36 @@ class MovieStoreDB extends AbstractStore
 					 Union ";
             $sqlAll .= $sqlCols.", 5 sorter, levenshtein(mov.DIRECTOR, '".$filter."') dist ".$sql." and ".$whereDirector." and NOT (".$whereTitle." or ".$whereTitleSort." or ".$whereOriginalTitle." or ".$whereActors.")";
         } else {
-            $sqlCnt = $sqlCnt.$sql;
             $sqlAll = $sqlCols.", 1 sorter, 1 dist ".$sql;
         }
 
-        $stmt = $db->query($sqlCnt);
-        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-        $rowCount = $row["Cnt"];
-
-        if ($rowCount > 0) {
-            $sql = $sqlAll;
-            if ($sort === "name") {
-                $sql .= "
-						Order by sorter, dist, TITLE_SORT ".$order;
-            }
-            if ($sort === "date") {
-                $sql .= "
-						Order by sorter, dist, ID ".$order;
-            }
-            if ($sort === "year") {
-                $sql .= "
-						Order by sorter, dist, RELEASE_DATE ".$order;
-            }
-            if ($cnt > -1) {
-                $sql .= "
-						Limit ".$offset.", ".$cnt;
-            }
-
-            $stmt = $db->query($sql);
-            $list = array();
-            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                $row['genres'] = explode(',', $row['genres']);
-                $row['actors'] = explode(',', str_replace('&nbsp;', ' ', $row['actors']));
-                $list[] = $row;
-            }
-
-            return array("list" => $list, "cnt" => $rowCount);
-        } else {
-            return array("list" => array(), "cnt" => 0);
+        $sql = $sqlAll;
+        if ($sort === "name") {
+            $sql .= "
+                    Order by sorter, dist, TITLE_SORT ".$order;
         }
+        if ($sort === "date") {
+            $sql .= "
+                    Order by sorter, dist, ID ".$order;
+        }
+        if ($sort === "year") {
+            $sql .= "
+                    Order by sorter, dist, RELEASE_DATE ".$order;
+        }
+        if ($cnt > -1) {
+            $sql .= "
+                    Limit ".$offset.", ".$cnt;
+        }
+
+        $stmt = $db->query($sql);
+
+        $models = [];
+
+        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+            $models[] = $this->createModel($row, $alias);
+        }
+
+        return $models;
     }
 
     /**
@@ -151,16 +140,15 @@ class MovieStoreDB extends AbstractStore
      * @param int    $collectionId
      * @param int    $cnt
      * @param int    $offset
+     * @param string $alias
      *
      * @return array
      */
-    public function getMoviesForCollection($category, $collectionId, $cnt, $offset)
+    public function getMoviesForCollection($category, $collectionId, $cnt, $offset, $alias)
     {
         $db = $this->connect();
-        $sqlCnt = "Select count(*) Cnt";
-        $sqlCols = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
-						mov.countries, mov.actors, mov.director, mov.info, mov.original_title, mov.collection_id, col.name collection_name";
-        $sql = "
+        $sql = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
+						mov.countries, mov.actors, mov.director, mov.info, mov.original_title, mov.collection_id, col.name collection_name
 				From collections col
 				Join collection_parts parts on col.ID = parts.COLLECTION_ID
 				Join movies mov on parts.MOVIE_ID = mov.MOVIE_DB_ID and col.CATEGORY = mov.CATEGORY
@@ -168,92 +156,33 @@ class MovieStoreDB extends AbstractStore
 				  and mov.CATEGORY = :category 
 				Order By mov.RELEASE_DATE";
 
-        $stmt = $db->prepare($sqlCnt.$sql);
+        if ($cnt > -1) {
+            $sql .= "
+                    Limit ".$offset.", ".$cnt;
+        }
+
+        $stmt = $db->prepare($sql);
         $stmt->bindValue(":collectionId", $collectionId, \PDO::PARAM_INT);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
-        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-        $rowCount = $row["Cnt"];
 
-        if ($rowCount > 0) {
-            $sql = $sqlCols.$sql;
-            if ($cnt > -1) {
-                $sql .= "
-						Limit ".$offset.", ".$cnt;
-            }
-            $stmt = $db->prepare($sql);
-            $stmt->bindValue(":collectionId", $collectionId, \PDO::PARAM_INT);
-            $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
-            $stmt->execute();
-            $list = array();
-            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                $row['genres'] = explode(',', $row['genres']);
-                $row['actors'] = explode(',', str_replace('&nbsp;', ' ', $row['actors']));
-                $list[] = $row;
-            }
+        $models = [];
 
-            return array("list" => $list, "cnt" => $rowCount);
-        } else {
-            return array("list" => array(), "cnt" => 0);
+        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+            $models[] = $this->createModel($row, $alias);
         }
-    }
 
-    /**
-     * @param string $category
-     * @param int    $listId
-     * @param int    $cnt
-     * @param int    $offset
-     *
-     * @return array
-     */
-    public function getMoviesForList($category, $listId, $cnt, $offset)
-    {
-        $db = $this->connect();
-        $sqlCnt = "Select count(*) Cnt";
-        $sqlCols = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
-							mov.countries, mov.actors, mov.director, mov.info, mov.original_title";
-        $sql = "
-				FROM list_parts lp
-				JOIN lists li on lp.LIST_ID = li.ID
-				JOIN movies mov ON lp.MOVIE_ID = mov.MOVIE_DB_ID and li.CATEGORY = mov.CATEGORY
-				WHERE lp.LIST_ID = :listId
-				  and mov.CATEGORY = :category 
-				Order By mov.RELEASE_DATE";
-        $stmt = $db->prepare($sqlCnt.$sql);
-        $stmt->bindValue(":listId", $listId, \PDO::PARAM_INT);
-        $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
-        $stmt->execute();
-        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-        $rowCount = $row["Cnt"];
-
-        if ($rowCount > 0) {
-            $sql = $sqlCols.$sql;
-            if ($cnt > -1) {
-                $sql .= "
-						Limit ".$offset.", ".$cnt;
-            }
-            $stmt = $db->prepare($sql);
-            $stmt->bindValue(":listId", $listId, \PDO::PARAM_INT);
-            $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
-            $stmt->execute();
-            $list = array();
-            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                $list[] = $row;
-            }
-
-            return array("list" => $list, "cnt" => $rowCount);
-        } else {
-            return array("list" => array(), "cnt" => 0);
-        }
+        return $models;
     }
 
     /**
      * @param string $category
      * @param int    $id
+     * @param string $alias
      *
-     * @return array
+     * @return MovieModel
      */
-    public function getMovieById($category, $id)
+    public function getMovieById($category, $id, $alias)
     {
         $sql = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
 						mov.countries, mov.actors, mov.director, mov.info, mov.original_title, 
@@ -261,11 +190,6 @@ class MovieStoreDB extends AbstractStore
 				From movies mov
 				Left Join collections col on mov.COLLECTION_ID = col.MOVIE_DB_ID
 				Where mov.category = :category and mov.id = :id";
-        $sqlLists = "Select li.ID list_id, li.NAME list_name
-					From movies mov
-					Join list_parts lp on mov.MOVIE_DB_ID = lp.MOVIE_ID	
-					Join lists li on li.ID = lp.LIST_ID
-					Where mov.category = :category and mov.ID = :id";
         $db = $this->connect();
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
@@ -273,17 +197,40 @@ class MovieStoreDB extends AbstractStore
         $stmt->execute();
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        $stmt = $db->prepare($sqlLists);
-        $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
-        $stmt->bindValue(":id", $id, \PDO::PARAM_INT);
-        $stmt->execute();
-        $row["lists"] = [];
+        return $this->createModel($row, $alias);
+    }
 
-        while ($tmp = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $row["lists"][] = ["list_id" => $tmp["list_id"], "list_name" => $tmp["list_name"]];
-        }
+    /**
+     * @param array  $movie
+     * @param string $alias
+     *
+     * @return MovieModel
+     */
+    private function createModel(array $movie, $alias)
+    {
+        //TODO remove all this path stuff, as well as the file extensions
+        $movie["poster"] = $alias.MovieService::PICTURES_FOLDER."/".$movie["movie_db_id"]."_333x500.jpg";
+        $movie["poster_big"] = $alias.MovieService::PICTURES_FOLDER."/".$movie["movie_db_id"]."_big.jpg";
+        $movie["filename"] = $alias.$movie["filename"];
 
-        return $row;
+        return new MovieModel(
+            $movie['id'],
+            $movie['title'],
+            $movie['original_title'],
+            $movie['overview'],
+            \DateTime::createFromFormat('Y-m-d', $movie['release_date']),
+            explode(',', $movie['genres']),
+            [$movie['director']],
+            explode(',', str_replace('&nbsp;', ' ', $movie['actors'])),
+            explode(',', $movie['countries']),
+            $movie['movie_db_id'],
+            $movie['filename'],
+            $movie['poster'],
+            $movie['poster_big'],
+            $movie['info'],
+            $movie['collection_id'],
+            $movie['collection_name']
+        );
     }
 
     /**
@@ -295,6 +242,8 @@ class MovieStoreDB extends AbstractStore
      * @param string              $id
      *
      * @throws \Exception
+     *
+     * @return string
      */
     public function updateMovie($category, MovieModelInterface $movie, MediaFileInfoModel $mediaFileInfoModel, $dir, $filename, $id = "")
     {
@@ -349,6 +298,12 @@ class MovieStoreDB extends AbstractStore
         $stmt->bindValue(":resolution", $mediaFileInfoModel->getResolution(), \PDO::PARAM_STR);
         $stmt->bindValue(":sound", $mediaFileInfoModel->getSound(), \PDO::PARAM_STR);
         $stmt->execute();
+
+        if (empty($id)) {
+            $id = $db->lastInsertId();
+        }
+
+        return $id;
     }
     /**
      * @param string                   $category
@@ -590,11 +545,12 @@ class MovieStoreDB extends AbstractStore
     }
 
     /**
-     * @param string $category
+     * @param string      $category
+     * @param string|null $filter
      *
      * @return array
      */
-    public function getGenres($category)
+    public function getGenres($category, $filter = null)
     {
         $sql = "Select genres
 				From movies
@@ -603,15 +559,19 @@ class MovieStoreDB extends AbstractStore
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
-        $genres = array();
+        $genres = [];
+
+        //TODO: genres are stored as comma separated list and need to be exploded here, filtering also has to happen here
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $tmp = explode(",", $row["genres"]);
+
             foreach ($tmp as $val) {
-                if (!in_array($val, $genres)) {
+                if (!in_array($val, $genres) && ($filter === null || substr($val, 0, strlen($filter)) === $filter)) {
                     $genres[] = $val;
                 }
             }
         }
+
         sort($genres);
 
         return $genres;
@@ -622,29 +582,9 @@ class MovieStoreDB extends AbstractStore
      *
      * @return array
      */
-    public function getLists($category)
-    {
-        $sql = "SELECT id, name
-				FROM lists
-				Where category = :category
-				ORDER BY name";
-        $db = $this->connect();
-        $stmt = $db->prepare($sql);
-        $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
-        $stmt->execute();
-        $lists = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-
-        return $lists;
-    }
-
-    /**
-     * @param string $category
-     *
-     * @return array
-     */
     public function getCollections($category)
     {
-        $sql = "SELECT MOVIE_DB_ID id, name
+        $sql = "SELECT MOVIE_DB_ID id, name, overview
 				FROM collections
 				Where category = :category
 				ORDER BY name";

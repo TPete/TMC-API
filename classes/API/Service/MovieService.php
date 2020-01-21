@@ -2,12 +2,20 @@
 
 namespace TinyMediaCenter\API\Service;
 
-use TinyMediaCenter\API\Model\Movie\MovieModelInterface;
+use TinyMediaCenter\API\Model\Resource\Movie\CollectionModel;
+use TinyMediaCenter\API\Model\Resource\Movie\CollectionModelInterface;
+use TinyMediaCenter\API\Model\Resource\Movie\GenresModel;
+use TinyMediaCenter\API\Model\Resource\Movie\MaintenanceModel;
+use TinyMediaCenter\API\Model\Resource\Movie\MovieModel;
+use TinyMediaCenter\API\Model\Resource\Movie\MovieModelInterface;
 use TinyMediaCenter\API\Model\MediaFileInfoModel;
 use TinyMediaCenter\API\Service\Store\MovieStoreDB;
 
 /**
  * Class MovieService
+ *
+ * Throughout this class $localId refers to an entry in the local database, whereas $remoteId refers to an
+ * entry in the external movie database.
  */
 class MovieService extends AbstractCategoryService
 {
@@ -74,6 +82,31 @@ class MovieService extends AbstractCategoryService
     }
 
     /**
+     * @return array
+     */
+    public function getCategoryNames()
+    {
+        if (empty($this->categoryNames)) {
+            $folders = $this->getFolders($this->path, [self::PICTURES_FOLDER]);
+            $categories = [MovieService::DEFAULT_CATEGORY];
+            $this->useDefault = true;
+
+            if (count($folders) > 0) {
+                $this->useDefault = false;
+                $categories = [];
+
+                foreach ($folders as $folder) {
+                    $categories[] = $folder;
+                }
+            }
+
+            $this->categoryNames = $categories;
+        }
+
+        return $this->categoryNames;
+    }
+
+    /**
      * Get movies matching the given criteria.
      *
      * @param string $category the category
@@ -84,15 +117,14 @@ class MovieService extends AbstractCategoryService
      * @param int    $cnt      pagination control; maximum number of results
      * @param int    $offset   pagination control; offset
      *
-     * @return array the movies (array of arrays)
-     *
+     * @return MovieModel[]
      */
     public function getMovies($category, $sort, $order, $filter, $genre, $cnt, $offset)
     {
-        $movieData = $this->movieStoreDB->getMovies($category, $sort, $order, $filter, $genre, $cnt, $offset);
-        $movieData["list"] = $this->addPosterEntry($category, $movieData["list"]);
+        //TODO alias is passed to construct paths for pictures and movie files, this does not belong in the store
+        $alias = $this->getCategoryAlias($category);
 
-        return $movieData;
+        return $this->movieStoreDB->getMovies($category, $sort, $order, $filter, $genre, $cnt, $offset, $alias);
     }
 
     /**
@@ -104,138 +136,111 @@ class MovieService extends AbstractCategoryService
      * @param int    $cnt          pagination control; maximum number of results
      * @param int    $offset       pagination control; offset
      *
-     * @return array the movies (array of arrays)
-     *
+     * @return MovieModel[]
      */
     public function getMoviesForCollection($category, $collectionID, $cnt, $offset)
     {
-        $movieData = $this->movieStoreDB->getMoviesForCollection($category, $collectionID, $cnt, $offset);
-        $movieData["list"] = $this->addPosterEntry($category, $movieData["list"]);
+        //TODO alias is passed to construct paths for pictures and movie files, this does not belong in the store
+        $alias = $this->getCategoryAlias($category);
 
-        return $movieData;
-    }
-
-    /**
-     * Get movies for the given list id.
-     * Results are ordered by release date.
-     *
-     * @param string $category
-     * @param string $listId
-     * @param int    $cnt
-     * @param int    $offset
-     *
-     * @return array
-     *
-     */
-    public function getMoviesForList($category, $listId, $cnt, $offset)
-    {
-        $movieData = $this->movieStoreDB->getMoviesForList($category, $listId, $cnt, $offset);
-        $movieData["list"] = $this->addPosterEntry($category, $movieData["list"]);
-
-        return $movieData;
+        return $this->movieStoreDB->getMoviesForCollection($category, $collectionID, $cnt, $offset, $alias);
     }
 
     /**
      * Get details for the given id (database id).
      *
      * @param string $category
-     * @param int    $id
+     * @param int    $localId
      *
-     * @return array the movie details, an error message if the movie was not found
+     * @return MovieModel
      */
-    public function getMovieDetails($category, $id)
+    public function getMovieDetails($category, $localId)
     {
-        $movie = $this->movieStoreDB->getMovieById($category, $id);
-
-        if (isset($movie["error"])) {
-            return $movie;
-        }
-
-        $movie["filename"] = $this->getCategoryAlias($category).$movie["filename"];
+        //TODO alias is passed to construct paths for pictures and movie files, this does not belong in the store
         $alias = $this->getCategoryAlias($category);
-        $movie["poster"] = $alias.self::PICTURES_FOLDER."/".$movie["movie_db_id"]."_333x500.jpg";
-        $movie["poster_big"] = $alias.self::PICTURES_FOLDER."/".$movie["movie_db_id"]."_big.jpg";
-        $actors = explode(",", $movie["actors"]);
-        $movie["actors"] = $actors;
-        $movie["countries"] = explode(",", $movie["countries"]);
-        $movie["genres"] = explode(",", $movie["genres"]);
-        $movie["year"] = substr($movie["release_date"], 0, 4);
 
-        return $movie;
+        return $this->movieStoreDB->getMovieById($category, $localId, $alias);
+    }
+
+    /**
+     * Get movie details from the external movie database api.
+     *
+     * @param string $remoteId
+     *
+     * @throws \Exception
+     *
+     * @return MovieModelInterface
+     */
+    public function lookupMovie($remoteId)
+    {
+        return $this->movieApi->getMovieInfo($remoteId);
     }
 
     /**
      * @param string $category
      * @param string $localId
-     * @param string $movieDBID
+     * @param string $remoteId
      * @param string $filename
      *
      * @throws \Exception
      *
-     * @return array
+     * @return MovieModel
      */
-    public function updateFromScraper($category, $localId, $movieDBID, $filename)
+    public function updateMovieFromApi($category, $localId, $remoteId, $filename)
     {
-        $movie = $this->movieApi->getMovieInfo($movieDBID);
+        $movie = $this->movieApi->getMovieInfo($remoteId);
         $fileInfo = new MediaFileInfoModel($this->getFilePath($category, $filename));
 
-        $result = $this->updateMovie($category, $movie, $fileInfo, $filename, $localId);
+        return $this->updateMovie($category, $movie, $fileInfo, $filename, $localId);
+//
+//        if ($result === 'Error') {
+//            return [
+//                'status' => 'Error',
+//                'error' => '',
+//            ];
+//        } else {
+//            return [
+//                'status' => 'Ok',
+//                'result' => $result,
+//            ];
+//        }
+    }
 
-        if ($result === 'Error') {
-            return [
-                'status' => 'Error',
-                'error' => '',
-            ];
-        } else {
-            return [
-                'status' => 'Ok',
-                'result' => $result,
-            ];
+    /**
+     * Get genres for the given category, optionally filtered.
+     *
+     * @param string      $category
+     * @param string|null $filter
+     *
+     * @return GenresModel[]
+     */
+    public function getGenres($category, $filter = null)
+    {
+        $models = [];
+
+        foreach ($this->movieStoreDB->getGenres($category, $filter) as $genre) {
+            $models[] = new GenresModel($genre);
         }
+
+        return $models;
     }
 
     /**
-     * @param string $id
+     * Get collections for the given category.
      *
-     * @throws \Exception
-     *
-     * @return array
-     */
-    public function lookupMovie($id)
-    {
-        $movie = $this->movieApi->getMovieInfo($id);
-
-        return $movie->toArray();
-    }
-
-    /**
      * @param string $category
      *
-     * @return array
-     */
-    public function getGenres($category)
-    {
-        return $this->movieStoreDB->getGenres($category);
-    }
-
-    /**
-     * @param string $category
-     *
-     * @return array
-     */
-    public function getLists($category)
-    {
-        return $this->movieStoreDB->getLists($category);
-    }
-
-    /**
-     * @param string $category
-     *
-     * @return array
+     * @return CollectionModelInterface[]
      */
     public function getCollections($category)
     {
-        return $this->movieStoreDB->getCollections($category);
+        $models = [];
+
+        foreach ($this->movieStoreDB->getCollections($category) as $collection) {
+            $models[] = new CollectionModel($collection['id'], $collection['name'], $collection['overview'], []);
+        }
+
+        return $models;
     }
 
     /**
@@ -246,10 +251,7 @@ class MovieService extends AbstractCategoryService
         $protocol = [];
 
         foreach ($this->getCategoryNames() as $category) {
-            $protocol[] = [
-                'type' => 'movie_maintenance',
-                'attributes' => $this->maintenance($category),
-            ];
+            $protocol[] = $this->maintenance($category);
         }
 
         return $protocol;
@@ -258,9 +260,9 @@ class MovieService extends AbstractCategoryService
     /**
      * @param string $category
      *
-     * @return array
+     * @return MaintenanceModel
      */
-    public function maintenance($category)
+    private function maintenance($category)
     {
         $path = $this->getCategoryPath($category);
         $picturePath = $this->getPicturePath($category);
@@ -322,54 +324,7 @@ class MovieService extends AbstractCategoryService
             'success' => true,
         ];
 
-        return $maintenance = [
-            'category' => $category,
-            'steps' => $steps,
-        ];
-    }
-
-    /**
-     * @return array
-     */
-    public function getCategoryNames()
-    {
-        if (empty($this->categoryNames)) {
-            $folders = $this->getFolders($this->path, [self::PICTURES_FOLDER]);
-            $categories = [MovieService::DEFAULT_CATEGORY];
-            $this->useDefault = true;
-
-            if (count($folders) > 0) {
-                $this->useDefault = false;
-                $categories = [];
-
-                foreach ($folders as $folder) {
-                    $categories[] = $folder;
-                }
-            }
-
-            $this->categoryNames = $categories;
-        }
-
-        return $this->categoryNames;
-    }
-
-    /**
-     * @param string $category
-     * @param array  $movies
-     *
-     * @return array
-     */
-    private function addPosterEntry($category, $movies)
-    {
-        $alias = $this->getCategoryAlias($category);
-
-        foreach ($movies as &$movie) {//call by reference
-            $movie["poster"] = $alias.self::PICTURES_FOLDER."/".$movie["movie_db_id"]."_333x500.jpg";
-            $movie["poster_big"] = $alias.self::PICTURES_FOLDER."/".$movie["movie_db_id"]."_big.jpg";
-            $movie["filename"] = $alias.$movie["filename"];
-        }
-
-        return $movies;
+        return new MaintenanceModel($category, $steps);
     }
 
     /**
@@ -391,6 +346,8 @@ class MovieService extends AbstractCategoryService
     }
 
     /**
+     * TODO sort all this categories, aliases and paths
+     *
      * @param string $category
      *
      * @return string
@@ -440,23 +397,19 @@ class MovieService extends AbstractCategoryService
      *
      * @throws \Exception
      *
-     * @return string
+     * @return MovieModel
      */
     private function updateMovie($category, MovieModelInterface $movie, MediaFileInfoModel $fileInfoModel, $filename, $localId = "")
     {
-        if ($movie !== null) {
-            $picturePath = $this->getPicturePath($category);
-            $this->downloadMoviePicture($picturePath, $movie->getId());
-            $this->createMovieThumbnails($picturePath);
+        $picturePath = $this->getPicturePath($category);
+        $this->downloadMoviePicture($picturePath, $movie->getId());
+        $this->createMovieThumbnails($picturePath);
 
-            $this
-                ->movieStoreDB
-                ->updateMovie($category, $movie, $fileInfoModel, $this->getCategoryPath($category), $filename, $localId);
+        $localId = $this
+            ->movieStoreDB
+            ->updateMovie($category, $movie, $fileInfoModel, $this->getCategoryPath($category), $filename, $localId);
 
-            return "OK:".$movie->getTitle();
-        } else {
-            return "Error";
-        }
+        return $this->getMovieDetails($category, $localId);
     }
 
     /**
@@ -498,6 +451,7 @@ class MovieService extends AbstractCategoryService
             fwrite($fp, $poster);
             fclose($fp);
 
+            //TODO change to more sensible return
             return "OK";
         } catch (\Exception $e) {
             return $e->getMessage();
@@ -687,7 +641,7 @@ class MovieService extends AbstractCategoryService
             $protocol = [
                 'object' => $filename,
                 'title' => $title,
-                'success' => substr($result, 0, 2) === 'OK', //TODO
+                'success' => substr($result, 0, 2) === 'OK', //TODO Do not return "Ok:Movie Title" from searchMovie
                 'result' => $result,
             ];
         }

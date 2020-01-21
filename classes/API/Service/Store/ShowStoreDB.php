@@ -1,6 +1,7 @@
 <?php
 namespace TinyMediaCenter\API\Service\Store;
 
+use TinyMediaCenter\API\Exception\NotFoundException;
 use TinyMediaCenter\API\Model\DBModel;
 use TinyMediaCenter\API\Service\AbstractStore;
 
@@ -23,6 +24,8 @@ class ShowStoreDB extends AbstractStore
     /**
      * @param string $category
      *
+     * @throws NotFoundException
+     *
      * @return array
      */
     public function getShows($category)
@@ -35,19 +38,30 @@ class ShowStoreDB extends AbstractStore
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
-        $shows = array();
+        $shows = [];
+
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $shows[] = $row;
+        }
+
+        if (empty($shows)) {
+            throw new NotFoundException(sprintf('Category "%s" not found', $category));
         }
 
         return $shows;
     }
 
     /**
+     * //TODO add model for store return, use also for getShows
+     *
+     * Get the series details if available, null otherwise.
+     *
      * @param string $category
      * @param string $folder
      *
-     * @return mixed
+     * @throws NotFoundException
+     *
+     * @return array
      */
     public function getShowDetails($category, $folder)
     {
@@ -60,21 +74,27 @@ class ShowStoreDB extends AbstractStore
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->bindValue(":folder", $folder, \PDO::PARAM_STR);
         $stmt->execute();
-        $show = $stmt->fetch(\PDO::FETCH_ASSOC);
+        $seriesDetails = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        return $show;
+        if (false === $seriesDetails) {
+            throw new NotFoundException(sprintf('Series "%s" not found', $folder));
+        }
+
+        return $seriesDetails;
     }
 
     /**
      * @param string $category
      * @param string $folder
      *
+     * @throws NotFoundException
+     *
      * @return array
      */
     public function getEpisodes($category, $folder)
     {
         $db = $this->connect();
-        $sql = "Select ep.season_no, ep.episode_no, ep.title, ep.id
+        $sql = "Select ep.season_no, ep.episode_no, ep.title, ep.id, ep.description
 				From shows sh
 				Join show_episodes ep on sh.id = ep.show_id
 				Where sh.category = :category and sh.folder = :folder 
@@ -83,15 +103,56 @@ class ShowStoreDB extends AbstractStore
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->bindValue(":folder", $folder, \PDO::PARAM_STR);
         $stmt->execute();
-        $episodes = array();
+        $episodes = [];
+
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $episodes[] = $row;
+        }
+
+        if (empty($episodes)) {
+            throw new NotFoundException(sprintf('Episodes for "%s/%s" not found', $category, $folder));
         }
 
         return $episodes;
     }
 
     /**
+     * TODO obsolete, remove
+     *
+     * @param string $category
+     * @param string $folder
+     * @param string $episode
+     *
+     * @throws NotFoundException
+     *
+     * @return array
+     */
+    public function getEpisode($category, $folder, $episode)
+    {
+        $db = $this->connect();
+        $sql = "Select ep.season_no, ep.episode_no, ep.title, ep.id, ep.description
+				From shows sh
+				Join show_episodes ep on sh.id = ep.show_id
+				Where sh.category = :category and sh.folder = :folder and ep.id = :episode
+				Order by ep.season_no, ep.episode_no";
+        $stmt = $db->prepare($sql);
+        $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
+        $stmt->bindValue(":folder", $folder, \PDO::PARAM_STR);
+        $stmt->bindValue(":episode", $episode, \PDO::PARAM_STR);
+        $stmt->execute();
+
+        $episodeDetails = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (empty($episodeDetails)) {
+            throw new NotFoundException(sprintf('Episode for "%s/%s/%s" not found', $category, $folder, $episode));
+        }
+
+        return $episodeDetails;
+    }
+
+    /**
+     * TODO obsolete, remove
+     *
      * @param string $category
      * @param int    $id
      *
@@ -156,10 +217,11 @@ class ShowStoreDB extends AbstractStore
     /**
      * @param string $category
      * @param string $folder
+     * @param string $title
      *
      * @return string|null
      */
-    public function createIfMissing($category, $folder)
+    public function createIfMissing($category, $folder, $title)
     {
         $db = $this->connect();
         $sql = "Select count(*) cnt
@@ -172,9 +234,8 @@ class ShowStoreDB extends AbstractStore
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
         if ($row["cnt"] === "0") {
-            $title = str_replace("-", " ", $folder);
             $sql = "Insert into shows(category, folder, title, ordering_scheme)
-					Values (:category, :folder, :title, 'Aired')";
+					Values (:category, :folder, :title, 'Aired')"; //TODO ordering_scheme
             $stmt = $db->prepare($sql);
             $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
             $stmt->bindValue(":folder", $folder, \PDO::PARAM_STR);

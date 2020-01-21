@@ -35,7 +35,7 @@ class SetupService
     ];
 
     /**
-     * @var ShowService
+     * @var SeriesService
      */
     private $showService;
 
@@ -57,12 +57,12 @@ class SetupService
     /**
      * SetupService constructor.
      *
-     * @param ShowService  $showService
-     * @param MovieService $movieService
-     * @param ShowStoreDB  $showStoreDB
-     * @param MovieStoreDB $movieStoreDB
+     * @param SeriesService $showService
+     * @param MovieService  $movieService
+     * @param ShowStoreDB   $showStoreDB
+     * @param MovieStoreDB  $movieStoreDB
      */
-    public function __construct(ShowService $showService, MovieService $movieService, ShowStoreDB $showStoreDB, MovieStoreDB $movieStoreDB)
+    public function __construct(SeriesService $showService, MovieService $movieService, ShowStoreDB $showStoreDB, MovieStoreDB $movieStoreDB)
     {
         $this->showService = $showService;
         $this->movieService = $movieService;

@@ -18,7 +18,7 @@ class TTVDBWrapper extends AbstractDBAPIWrapper
     /**
      * @var string
      */
-    private $imageBaseUrl = "http://thetvdb.com/banners/fanart/original/";
+    private $imageBaseUrl = "https://thetvdb.com/banners/fanart/original/";
 
     /**
      * TTVDBWrapper constructor.
@@ -27,7 +27,7 @@ class TTVDBWrapper extends AbstractDBAPIWrapper
      */
     public function __construct($apiKey)
     {
-        parent::__construct("http://thetvdb.com/api/");
+        parent::__construct("https://thetvdb.com/api/");
         $this->apiKey = $apiKey;
         libxml_use_internal_errors(true);
     }
@@ -72,16 +72,18 @@ class TTVDBWrapper extends AbstractDBAPIWrapper
     {
         $url = $this->apiKey."/series/".$id."/all/".$lang.".xml";
         $raw = $this->curlDownload($url);
+
         try {
             if (strlen($raw) === 0) {
                 throw new ScrapeException("Failed to retrieve series info for id ".$id.": Web API returned no data.");
             }
 
-            $xml           = new \SimpleXMLElement($raw);
-            $rawEpisodes   = $xml->Episode;
-            $seasons       = [];
-            $seasonNumber  = 0;
+            $xml = new \SimpleXMLElement($raw);
+            $rawEpisodes = $xml->Episode;
+            $seasons = [];
+            $seasonNumber = 0;
             $episodeNumber = 0;
+
             foreach ($rawEpisodes as $re) {
                 if ($orderingScheme === "DVD") {
                     $seasonNumber = (int) (strlen($re->DVD_season) > 0 ? $re->DVD_season : $re->SeasonNumber);
@@ -104,9 +106,15 @@ class TTVDBWrapper extends AbstractDBAPIWrapper
                 }
                 $seasons[$seasonNumber][$episodeNumber] = ["title" => (string) $re->EpisodeName, "description" => (string) $re->Overview];
             }
+
             ksort($seasons);
+
             foreach ($seasons as &$season) {
                 ksort($season);
+            }
+
+            if (empty($seasons)) {
+                throw new ScrapeException('Scraping failed (check ID): No data');
             }
 
             return $seasons;
@@ -116,16 +124,19 @@ class TTVDBWrapper extends AbstractDBAPIWrapper
     }
 
     /**
+     * TODO obsolete, remove
+     *
      * @param string $name
+     *
+     * @throws \Exception
      *
      * @return array
      */
     public function getSeriesInfoByName($name)
     {
         $id = $this->getSeriesId($name);
-        $info = $this->getSeriesInfoById($id);
 
-        return $info;
+        return $this->getSeriesInfoById($id);
     }
 
     /**

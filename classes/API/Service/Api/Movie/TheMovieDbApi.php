@@ -176,9 +176,7 @@ class TheMovieDbApi implements MovieApiInterface
         $config = $this->getConfiguration();
         $baseUrl = $config[self::KEY_CONFIG_IMAGES][self::KEY_BASE_URL];
 
-        $url = sprintf('%s%s%s', $baseUrl, self::IMAGE_PATH_ORIGINAL, $posterPath);
-
-        return $url;
+        return sprintf('%s%s%s', $baseUrl, self::IMAGE_PATH_ORIGINAL, $posterPath);
     }
 
     /**
@@ -218,9 +216,7 @@ class TheMovieDbApi implements MovieApiInterface
         $output = curl_exec($ch);
         curl_close($ch);
 
-        $data = json_decode($output, true);
-
-        return $data;
+        return json_decode($output, true);
     }
 
     /**

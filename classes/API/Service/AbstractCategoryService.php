@@ -7,6 +7,9 @@ namespace TinyMediaCenter\API\Service;
  */
 abstract class AbstractCategoryService
 {
+    //TODO setup interfaces for: categories, movies and shows
+    //TODO remove this class ?
+    //TODO do we really need categories and category names?
     /**
      * Get categories.
      */
@@ -17,10 +20,12 @@ abstract class AbstractCategoryService
      */
     abstract public function getCategoryNames();
 
-    /**
-     * Update data.
-     */
-    abstract public function updateData();
+//    /**
+//     * Update data.
+//     *
+//     * @throws \Exception
+//     */
+//    abstract public function updateData();
 
     /**
      * @param string $path
@@ -63,6 +68,8 @@ abstract class AbstractCategoryService
     }
 
     /**
+     * TODO move to specialized service?
+     *
      * @param string $sourceImagePath
      * @param string $thumbnailImagePath
      * @param int    $width

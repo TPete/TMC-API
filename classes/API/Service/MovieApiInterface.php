@@ -2,8 +2,8 @@
 
 namespace TinyMediaCenter\API\Service;
 
-use TinyMediaCenter\API\Model\Movie\CollectionModelInterface;
-use TinyMediaCenter\API\Model\Movie\MovieModelInterface;
+use TinyMediaCenter\API\Model\Resource\Movie\CollectionModelInterface;
+use TinyMediaCenter\API\Model\Resource\Movie\MovieModelInterface;
 
 /**
  * Interface MovieApiInterface

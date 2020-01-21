@@ -1,16 +1,18 @@
 <?php
 
-namespace TinyMediaCenter\API\Model\Movie;
+namespace TinyMediaCenter\API\Model\Resource\Movie;
+
+use TinyMediaCenter\API\Model\AbstractResourceModel;
 
 /**
  * Class CollectionModel
  */
-class CollectionModel implements CollectionModelInterface
+class CollectionModel extends AbstractResourceModel implements CollectionModelInterface
 {
     /**
-     * @var int
+     * @var string
      */
-    private $id;
+    protected $type = 'movie_collection';
 
     /**
      * @var string
@@ -37,22 +39,14 @@ class CollectionModel implements CollectionModelInterface
      */
     public function __construct($id, $name, $overview, array $parts)
     {
-        $this->id = $id;
+        parent::__construct($id);
         $this->name = $name;
         $this->overview = $overview;
         $this->parts = $parts;
     }
 
     /**
-     * @return int
-     */
-    public function getId()
-    {
-        return $this->id;
-    }
-
-    /**
-     * @return string
+     * {@inheritDoc}
      */
     public function getName()
     {
@@ -60,7 +54,7 @@ class CollectionModel implements CollectionModelInterface
     }
 
     /**
-     * @return string
+     * {@inheritDoc}
      */
     public function getOverview()
     {
@@ -68,10 +62,26 @@ class CollectionModel implements CollectionModelInterface
     }
 
     /**
-     * @return array
+     * {@inheritDoc}
      */
     public function getParts()
     {
         return $this->parts;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function toArray()
+    {
+        return [
+            'type' => $this->getType(),
+            'id' => $this->getId(),
+            'attributes' => [
+                'name' => $this->getName(),
+                'overview' => $this->getOverview(),
+                'parts' => $this->getParts(), //TODO move to relationships?
+            ],
+        ];
     }
 }
