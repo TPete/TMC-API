@@ -3,6 +3,7 @@ namespace TinyMediaCenter\API\Service\Store;
 
 use TinyMediaCenter\API\Exception\NotFoundException;
 use TinyMediaCenter\API\Model\DBModel;
+use TinyMediaCenter\API\Model\Store\SeriesModel;
 use TinyMediaCenter\API\Service\AbstractStore;
 
 /**
@@ -26,7 +27,7 @@ class ShowStoreDB extends AbstractStore
      *
      * @throws NotFoundException
      *
-     * @return array
+     * @return SeriesModel[]
      */
     public function getShows($category)
     {
@@ -41,7 +42,7 @@ class ShowStoreDB extends AbstractStore
         $shows = [];
 
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $shows[] = $row;
+            $shows[] = $this->createModel($row);
         }
 
         if (empty($shows)) {
@@ -52,8 +53,6 @@ class ShowStoreDB extends AbstractStore
     }
 
     /**
-     * //TODO add model for store return, use also for getShows
-     *
      * Get the series details if available, null otherwise.
      *
      * @param string $category
@@ -61,7 +60,7 @@ class ShowStoreDB extends AbstractStore
      *
      * @throws NotFoundException
      *
-     * @return array
+     * @return SeriesModel
      */
     public function getShowDetails($category, $folder)
     {
@@ -80,7 +79,7 @@ class ShowStoreDB extends AbstractStore
             throw new NotFoundException(sprintf('Series "%s" not found', $folder));
         }
 
-        return $seriesDetails;
+        return $this->createModel($seriesDetails);
     }
 
     /**
@@ -312,5 +311,22 @@ class ShowStoreDB extends AbstractStore
             }
             $seasonCnt++;
         }
+    }
+
+    /**
+     * @param array $seriesData
+     *
+     * @return SeriesModel
+     */
+    private function createModel(array $seriesData)
+    {
+        return new SeriesModel(
+            $seriesData['id'],
+            $seriesData['title'],
+            $seriesData['folder'],
+            $seriesData['tvdb_id'],
+            $seriesData['lang'],
+            $seriesData['ordering_scheme']
+        );
     }
 }

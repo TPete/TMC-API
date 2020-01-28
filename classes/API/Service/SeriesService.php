@@ -10,6 +10,7 @@ use TinyMediaCenter\API\Model\Resource\Area\Category\Series\SeasonModel;
 use TinyMediaCenter\API\Model\Resource\Area\Category\SeriesModel;
 use TinyMediaCenter\API\Model\Resource\Area\CategoryModel;
 use TinyMediaCenter\API\Model\Resource\AreaModel;
+use TinyMediaCenter\API\Model\Store\SeriesModel as StoreSeriesModel;
 use TinyMediaCenter\API\Service\MediaLibrary\TTVDBWrapper;
 use TinyMediaCenter\API\Service\Store\ShowStoreDB;
 
@@ -99,18 +100,10 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
      */
     public function getByCategory($category)
     {
-        $path = $this->getCategoryAlias($category);
         $result = [];
 
-        foreach ($this->showStoreDB->getShows($category) as $show) {
-            $result[] = new SeriesModel(
-                $show['id'],
-                $show['title'],
-                $path.$show['folder'].'/thumb.jpg',
-                $show['lang'],
-                $show['tvdb_id'],
-                $show['folder']
-            );
+        foreach ($this->showStoreDB->getShows($category) as $model) {
+            $result[] = $this->convertModels($model, $category);
         }
 
         return $result;
@@ -130,9 +123,9 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
     public function update($category, $series, $title, $tvDbId, $lang)
     {
         $this->showStoreDB->updateDetails($category, $series, $title, $tvDbId, $lang);
-        $seriesDetails = $this->showStoreDB->getShowDetails($category, $series);
-        $this->updateEpisodes($seriesDetails);
-        $this->fetchBackgroundImage($category, $series, $seriesDetails['tvdb_id'], true);
+        $model = $this->showStoreDB->getShowDetails($category, $series);
+        $this->updateEpisodes($model);
+        $this->fetchBackgroundImage($category, $series, $model->getApiId(), true);
         $this->updateThumbnail($category, $series, true);
 
         return $this->getSeriesDetails($category, $series);
@@ -446,31 +439,31 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
     }
 
     /**
-     * @param array  $series
-     * @param string $category
+     * @param StoreSeriesModel[] $seriesModels
+     * @param string             $category
      *
      * @throws \Exception
      *
      * @return array
      */
-    private function updateEpisodesForSeries(array $series, $category)
+    private function updateEpisodesForSeries(array $seriesModels, $category)
     {
         $protocol = [];
 
-        //id, title, folder, tvdb_id, ordering_scheme, lang
-        foreach ($series as $show) {
+        /** @var StoreSeriesModel $seriesModel */
+        foreach ($seriesModels as $seriesModel) {
             try {
                 $showProtocol = [
-                    'object' => $show['title'],
+                    'object' => $seriesModel->getTitle(),
                     'success' => true,
                 ];
 
-                if (empty($show['tvdb_id'])) {
-                    $show['tvdb_id'] = $this->updateTvDbId($category, $show['folder'], $show['title']);
+                if (empty($seriesModel->getApiId())) {
+                    $seriesModel->setApiId($this->updateTvDbId($category, $seriesModel->getFolder(), $seriesModel->getTitle()));
                 }
 
-                if (!empty([$show['tvdb_id']])) {
-                    $this->updateEpisodes($show);
+                if (!empty([$seriesModel->getApiId()])) {
+                    $this->updateEpisodes($seriesModel);
                 }
             } catch (ScrapeException $e) {
                 $showProtocol['success'] = false;
@@ -484,34 +477,34 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
     }
 
     /**
-     * @param array $seriesData
+     * @param StoreSeriesModel $seriesModel
      *
      * @throws ScrapeException
      */
-    private function updateEpisodes(array $seriesData)
+    private function updateEpisodes(StoreSeriesModel $seriesModel)
     {
-        $seasons = $this->ttvdbWrapper->getSeriesInfoById($seriesData["tvdb_id"], $seriesData["ordering_scheme"], $seriesData["lang"]);
-        $this->showStoreDB->updateEpisodes($seriesData["id"], $seasons);
+        $seasons = $this->ttvdbWrapper->getSeriesInfoById($seriesModel->getApiId(), $seriesModel->getOrderingScheme(), $seriesModel->getLanguage());
+        $this->showStoreDB->updateEpisodes($seriesModel->getId(), $seasons);
     }
 
     /**
-     * @param array  $series
-     * @param string $category
+     * @param StoreSeriesModel[] $seriesModels
+     * @param string             $category
      *
      * @return array
      */
-    private function fetchBackgroundImagesForSeries(array $series, $category)
+    private function fetchBackgroundImagesForSeries(array $seriesModels, $category)
     {
         $protocol = [];
 
-        //id, title, folder, tvdb_id, ordering_scheme, lang
-        foreach ($series as $show) {
+        /** @var StoreSeriesModel $seriesModel */
+        foreach ($seriesModels as $seriesModel) {
             try {
                 $folderProtocol = [
-                    'object' => $show['title'],
+                    'object' => $seriesModel->getTitle(),
                     'success' => true,
                 ];
-                $this->fetchBackgroundImage($category, $show['folder'], $show['tvdb_id']);
+                $this->fetchBackgroundImage($category, $seriesModel->getFolder(), $seriesModel->getApiId());
             } catch (\Exception $e) {
                 $folderProtocol['success'] = false;
                 $folderProtocol['error'] = $e->getMessage();
@@ -602,6 +595,26 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
     }
 
     /**
+     * @param StoreSeriesModel $model
+     * @param string           $category
+     *
+     * @return SeriesModel
+     */
+    private function convertModels(StoreSeriesModel $model, $category)
+    {
+        $path = $this->getCategoryAlias($category);
+
+        return new SeriesModel(
+            $model->getId(),
+            $model->getTitle(),
+            $path.$model->getFolder().'/thumb.jpg',
+            $model->getLanguage(),
+            $model->getApiId(),
+            $model->getFolder()
+        );
+    }
+
+    /**
      * @param string $category
      * @param string $id
      *
@@ -611,17 +624,9 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
      */
     private function getSeriesDetails($category, $id)
     {
-        $show = $this->showStoreDB->getShowDetails($category, $id);
-        $path = $this->getCategoryAlias($category);
+        $model = $this->showStoreDB->getShowDetails($category, $id);
 
-        return new SeriesModel(
-            $show['id'],
-            $show['title'],
-            $path.$show['folder'].'/thumb.jpg',
-            $show['lang'],
-            $show['tvdb_id'],
-            $show['folder']
-        );
+        return $this->convertModels($model, $category);
     }
 
     /**

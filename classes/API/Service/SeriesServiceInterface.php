@@ -2,6 +2,7 @@
 
 namespace TinyMediaCenter\API\Service;
 
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series\MaintenanceModel;
 use TinyMediaCenter\API\Model\Resource\Area\Category\SeriesModel;
 use TinyMediaCenter\API\Model\Resource\Area\Category\Series\SeasonModel;
 use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Season\EpisodeModel;
@@ -129,7 +130,7 @@ interface SeriesServiceInterface
      *
      * @throws \Exception
      *
-     * @return array
+     * @return MaintenanceModel[]
      */
     public function updateData();
 }
