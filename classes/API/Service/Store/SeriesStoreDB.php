@@ -1,18 +1,20 @@
 <?php
+
 namespace TinyMediaCenter\API\Service\Store;
 
 use TinyMediaCenter\API\Exception\NotFoundException;
 use TinyMediaCenter\API\Model\DBModel;
 use TinyMediaCenter\API\Model\Store\SeriesModel;
-use TinyMediaCenter\API\Service\AbstractStore;
 
 /**
- * Class ShowStoreDB
+ * Store for series.
+ *
+ * TODO should be more consistent: use folder to identify new and id for existing entries.
  */
-class ShowStoreDB extends AbstractStore
+class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
 {
     /**
-     * ShowStoreDB constructor.
+     * SeriesStoreDB constructor.
      *
      * @param DBModel $dbModel
      */
@@ -23,13 +25,9 @@ class ShowStoreDB extends AbstractStore
     }
 
     /**
-     * @param string $category
-     *
-     * @throws NotFoundException
-     *
-     * @return SeriesModel[]
+     * {@inheritDoc}
      */
-    public function getShows($category)
+    public function getSeries($category)
     {
         $db = $this->connect();
         $sql = "Select id, title, folder, tvdb_id, ordering_scheme, lang
@@ -53,16 +51,9 @@ class ShowStoreDB extends AbstractStore
     }
 
     /**
-     * Get the series details if available, null otherwise.
-     *
-     * @param string $category
-     * @param string $folder
-     *
-     * @throws NotFoundException
-     *
-     * @return SeriesModel
+     * {@inheritDoc}
      */
-    public function getShowDetails($category, $folder)
+    public function getSeriesDetails($category, $folder)
     {
         $db = $this->connect();
         $sql = "Select id, title, folder, tvdb_id, ordering_scheme, lang
@@ -83,12 +74,7 @@ class ShowStoreDB extends AbstractStore
     }
 
     /**
-     * @param string $category
-     * @param string $folder
-     *
-     * @throws NotFoundException
-     *
-     * @return array
+     * {@inheritDoc}
      */
     public function getEpisodes($category, $folder)
     {
@@ -116,74 +102,7 @@ class ShowStoreDB extends AbstractStore
     }
 
     /**
-     * TODO obsolete, remove
-     *
-     * @param string $category
-     * @param string $folder
-     * @param string $episode
-     *
-     * @throws NotFoundException
-     *
-     * @return array
-     */
-    public function getEpisode($category, $folder, $episode)
-    {
-        $db = $this->connect();
-        $sql = "Select ep.season_no, ep.episode_no, ep.title, ep.id, ep.description
-				From shows sh
-				Join show_episodes ep on sh.id = ep.show_id
-				Where sh.category = :category and sh.folder = :folder and ep.id = :episode
-				Order by ep.season_no, ep.episode_no";
-        $stmt = $db->prepare($sql);
-        $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
-        $stmt->bindValue(":folder", $folder, \PDO::PARAM_STR);
-        $stmt->bindValue(":episode", $episode, \PDO::PARAM_STR);
-        $stmt->execute();
-
-        $episodeDetails = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-        if (empty($episodeDetails)) {
-            throw new NotFoundException(sprintf('Episode for "%s/%s/%s" not found', $category, $folder, $episode));
-        }
-
-        return $episodeDetails;
-    }
-
-    /**
-     * TODO obsolete, remove
-     *
-     * @param string $category
-     * @param int    $id
-     *
-     * @return mixed
-     */
-    public function getEpisodeDescription($category, $id)
-    {
-        $db = $this->connect();
-        $sql = "Select concat( season_no, 'x', lpad(episode_no, 2, '0')) episode, title, description
-				From show_episodes
-				Where id = :id
-				order by title";
-        $stmt = $db->prepare($sql);
-        $stmt->bindValue(":id", $id, \PDO::PARAM_STR);
-        $stmt->execute();
-        $desc = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-        return $desc;
-    }
-
-    /**
-     * Update the title and the web database id of a show.
-     *
-     * Return the old web database id.
-     *
-     * @param String $category The category name.
-     * @param String $folder   The folder name.
-     * @param String $title    The new show title.
-     * @param int    $tvdbId   The new web database id.
-     * @param String $lang     The language
-     *
-     * @return int The old web database id.
+     * {@inheritDoc}
      */
     public function updateDetails($category, $folder, $title, $tvdbId, $lang)
     {
@@ -214,11 +133,7 @@ class ShowStoreDB extends AbstractStore
     }
 
     /**
-     * @param string $category
-     * @param string $folder
-     * @param string $title
-     *
-     * @return string|null
+     * {@inheritDoc}
      */
     public function createIfMissing($category, $folder, $title)
     {
@@ -248,10 +163,7 @@ class ShowStoreDB extends AbstractStore
     }
 
     /**
-     * @param string $category
-     * @param array  $folders
-     *
-     * @return array
+     * {@inheritDoc}
      */
     public function removeIfObsolete($category, $folders)
     {
@@ -282,8 +194,7 @@ class ShowStoreDB extends AbstractStore
     }
 
     /**
-     * @param int   $showId
-     * @param array $seasons
+     * {@inheritDoc}
      */
     public function updateEpisodes($showId, $seasons)
     {

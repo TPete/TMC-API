@@ -1,12 +1,11 @@
 <?php
 
-namespace TinyMediaCenter\API\Service;
+namespace TinyMediaCenter\API\Service\Area;
 
 use TinyMediaCenter\API\Model\Resource\Area\Category\Series\MaintenanceModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\SeriesModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Series\SeasonModel;
 use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Season\EpisodeModel;
-use TinyMediaCenter\API\Model\Resource\Area\CategoryModel;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series\SeasonModel;
+use TinyMediaCenter\API\Model\Resource\Area\Category\SeriesModel;
 use TinyMediaCenter\API\Model\Resource\AreaModel;
 
 /**
@@ -19,7 +18,7 @@ use TinyMediaCenter\API\Model\Resource\AreaModel;
  * - seasons
  * - episodes
  */
-interface SeriesServiceInterface
+interface SeriesServiceInterface extends AreaServiceInterface
 {
     /**
      * Get meta info about the series area.
@@ -27,13 +26,6 @@ interface SeriesServiceInterface
      * @return AreaModel
      */
     public function getMetaInfo();
-
-    /**
-     * Get all categories of the series area.
-     *
-     * @return CategoryModel[]
-     */
-    public function getCategories();
 
     /**
      * Get all series of a category.

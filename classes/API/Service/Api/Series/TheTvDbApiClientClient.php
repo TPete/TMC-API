@@ -1,14 +1,15 @@
 <?php
 
-namespace TinyMediaCenter\API\Service\MediaLibrary;
+namespace TinyMediaCenter\API\Service\Api\Series;
 
 use TinyMediaCenter\API\Exception\ScrapeException;
-use TinyMediaCenter\API\Service\AbstractDBAPIWrapper;
+use TinyMediaCenter\API\Service\Api\AbstractMediaApiClient;
+use TinyMediaCenter\API\Service\Api\SeriesApiClientInterface;
 
 /**
- * Class TTVDBWrapper
+ * Class TheTvDbApi
  */
-class TTVDBWrapper extends AbstractDBAPIWrapper
+class TheTvDbApiClientClient extends AbstractMediaApiClient implements SeriesApiClientInterface
 {
     /**
      * @var string
@@ -21,7 +22,7 @@ class TTVDBWrapper extends AbstractDBAPIWrapper
     private $imageBaseUrl = "https://thetvdb.com/banners/fanart/original/";
 
     /**
-     * TTVDBWrapper constructor.
+     * TheTvDbApi constructor.
      *
      * @param string $apiKey
      */
@@ -33,11 +34,7 @@ class TTVDBWrapper extends AbstractDBAPIWrapper
     }
 
     /**
-     * @param string $name
-     *
-     * @throws ScrapeException
-     *
-     * @return string
+     * {@inheritDoc}
      */
     public function getSeriesId($name)
     {
@@ -60,13 +57,7 @@ class TTVDBWrapper extends AbstractDBAPIWrapper
     }
 
     /**
-     * @param int    $id
-     * @param string $orderingScheme
-     * @param string $lang
-     *
-     * @throws ScrapeException
-     *
-     * @return array
+     * {@inheritDoc}
      */
     public function getSeriesInfoById($id, $orderingScheme, $lang = 'de')
     {
@@ -124,26 +115,9 @@ class TTVDBWrapper extends AbstractDBAPIWrapper
     }
 
     /**
-     * TODO obsolete, remove
-     *
-     * @param string $name
-     *
-     * @throws \Exception
-     *
-     * @return array
+     * {@inheritDoc}
      */
-    public function getSeriesInfoByName($name)
-    {
-        $id = $this->getSeriesId($name);
-
-        return $this->getSeriesInfoById($id);
-    }
-
-    /**
-     * @param string $seriesId
-     * @param string $path
-     */
-    public function downloadBG($seriesId, $path)
+    public function downloadBackgroundImage($seriesId, $path)
     {
         $url = $this->imageBaseUrl.$seriesId."-1.jpg";
         $this->downloadImage($url, $path);

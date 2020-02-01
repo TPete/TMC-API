@@ -1,17 +1,17 @@
 <?php
 
-namespace TinyMediaCenter\API\Service\Api\Movie;
+namespace TinyMediaCenter\API\Service\Api\Movies;
 
-use TinyMediaCenter\API\Model\Movie\Api\TheMovieDbModel;
-use TinyMediaCenter\API\Model\Movie\CollectionModel;
-use TinyMediaCenter\API\Service\MovieApiInterface;
+use TinyMediaCenter\API\Model\Api\Movies\TheMovieDbModel;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\CollectionModel;
+use TinyMediaCenter\API\Service\Api\MoviesApiClientInterface;
 
 /**
  * Client for themoviedb.org API.
  *
  * @see https://developers.themoviedb.org/3/
  */
-class TheMovieDbApi implements MovieApiInterface
+class TheMoviesDbApiClientClient implements MoviesApiClientInterface
 {
     const BASE_URL = 'http://api.themoviedb.org/3/';
 
@@ -129,6 +129,7 @@ class TheMovieDbApi implements MovieApiInterface
             throw new \Exception('Error from API: '.$data[self::KEY_ERROR_MESSAGE]);
         }
 
+        //TODO should be a different model
         return new CollectionModel($data['id'], $data['name'], $data['overview'], $data['parts']);
     }
 

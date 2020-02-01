@@ -1,14 +1,17 @@
 <?php
 
-namespace TinyMediaCenter\API\Model\Resource\Movie;
-
-use TinyMediaCenter\API\Model\ResourceModelInterface;
+namespace TinyMediaCenter\API\Model;
 
 /**
  * Interface CollectionModelInterface
  */
-interface CollectionModelInterface extends ResourceModelInterface
+interface CollectionModelInterface
 {
+    /**
+     * @return int
+     */
+    public function getId();
+
     /**
      * @return string
      */

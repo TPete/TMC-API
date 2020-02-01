@@ -1,14 +1,14 @@
 <?php
 
-namespace TinyMediaCenter\API\Service;
+namespace TinyMediaCenter\API\Service\Api;
 
-use TinyMediaCenter\API\Model\Resource\Movie\CollectionModelInterface;
-use TinyMediaCenter\API\Model\Resource\Movie\MovieModelInterface;
+use TinyMediaCenter\API\Model\CollectionModelInterface;
+use TinyMediaCenter\API\Model\MovieModelInterface;
 
 /**
  * Interface MovieApiInterface
  */
-interface MovieApiInterface
+interface MoviesApiClientInterface
 {
     /**
      * Returns the info for the given movie id.

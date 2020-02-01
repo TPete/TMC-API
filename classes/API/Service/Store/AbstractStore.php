@@ -1,13 +1,13 @@
 <?php
 
-namespace TinyMediaCenter\API\Service;
+namespace TinyMediaCenter\API\Service\Store;
 
 use TinyMediaCenter\API\Model\DBModel;
 
 /**
  * Class AbstractStore
  */
-abstract class AbstractStore
+abstract class AbstractStore implements StoreInterface
 {
     /**
      * @var DBModel
@@ -58,7 +58,7 @@ abstract class AbstractStore
     /**
      * Setup database.
      */
-    public function setupDB()
+    public function setup()
     {
         $db = $this->connect();
         foreach ($this->tables as $table) {

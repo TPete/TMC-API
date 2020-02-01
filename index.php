@@ -12,14 +12,13 @@ use Slim\Router;
 use TinyMediaCenter\API;
 use TinyMediaCenter\API\Controller\Area\MovieController;
 use TinyMediaCenter\API\Controller\Area\SeriesController;
-use TinyMediaCenter\API\Controller\CategoryController;
 use TinyMediaCenter\API\Controller\IndexController;
 use TinyMediaCenter\API\Controller\SetupController;
-use TinyMediaCenter\API\Service\MovieService;
+use TinyMediaCenter\API\Service\Area\MovieService;
+use TinyMediaCenter\API\Service\Area\SeriesService;
 use TinyMediaCenter\API\Service\SetupService;
-use TinyMediaCenter\API\Service\SeriesService;
 
-$app = new Slim\App();
+$app = new App();
 
 //Redirect url ending in non-trailing slash to trailing equivalent
 $app->add(function (Request $request, Response $response, callable $next) {
@@ -48,9 +47,7 @@ $app
         function () {
             /** @var App $this */
             $this->map(['GET', 'POST'], '/', SetupController::class.':indexAction')->setName('app.config');
-
             $this->get('/check/{type}/', SetupController::class.':checkAction');
-
             $this->post('/db/', SetupController::class.':setupDBAction');
         }
     );
@@ -60,7 +57,7 @@ $app
         '/areas',
         function () {
             /** @var App $this */
-            $this->get('/', CategoryController::class.':indexAction')->setName('app.areas');
+            $this->get('/', IndexController::class.':areasAction')->setName('app.areas');
 
             $this
                 ->group(
@@ -90,7 +87,9 @@ $app
                         $this->get('/categories/{category}/', MovieController::class.':categoryAction')->setName('app.movies.categories.category.index');
                         $this->map(['GET', 'POST'], '/categories/{category}/movies/{id}/', MovieController::class.':detailsAction')->setName('app.movies.movie_details');
                         $this->get('/categories/{category}/genres/', MovieController::class.':genresAction')->setName('app.movies.genres');
+                        //TODO add /categories/{category}/genres/{genre}/
                         $this->get('/categories/{category}/collections/', MovieController::class.':collectionsAction')->setName('app.movies.collections');
+                        //TODO /categories/{category}/collections/{collection}/
 
                         $this->post('/maintenance/', MovieController::class.':maintenanceAction')->setName('app.movies.maintenance');
                         $this->get('/lookup/{externalId}/', MovieController::class.':lookupAction')->setName('app.movies.lookup');
@@ -125,10 +124,10 @@ try {
     };
 
     //TV series
-    $showStore = new API\Service\Store\ShowStoreDB($dbModel);
-    $tTvDbWrapper = new API\Service\MediaLibrary\TTVDBWrapper($configModel->getTtvdbApiKey());
+    $seriesStore = new API\Service\Store\SeriesStoreDB($dbModel);
+    $tTvDbWrapper = new API\Service\Api\Series\TheTvDbApiClientClient($configModel->getTtvdbApiKey());
     $seriesService = new SeriesService(
-        $showStore,
+        $seriesStore,
         $tTvDbWrapper,
         $configModel->getPathShows(),
         $configModel->getAliasShows()
@@ -143,7 +142,7 @@ try {
 
     //movies
     $movieStore = new API\Service\Store\MovieStoreDB($dbModel);
-    $theMovieDbApi = new API\Service\Api\Movie\TheMovieDbApi($configModel->getTmdbApiKey(), $language);
+    $theMovieDbApi = new API\Service\Api\Movies\TheMoviesDbApiClientClient($configModel->getTmdbApiKey(), $language);
     $movieService = new MovieService(
         $movieStore,
         $theMovieDbApi,
@@ -154,27 +153,12 @@ try {
     $container[MovieController::class] = function (Container $container) {
         /** @var MovieService $movieService */
         $movieService = $container->get('movie_service');
-        /** @var \Slim\Interfaces\RouterInterface $router */
-        $router = $container->get('router');
 
-        return new MovieController($movieService, $router);
-    };
-
-    //categories
-    $container[CategoryController::class] = function (Container $container) {
-        /** @var SeriesService $seriesService */
-        $seriesService = $container->get('series_service');
-        /** @var MovieService $movieService */
-        $movieService = $container->get('movie_service');
-        /** @var \Slim\Interfaces\RouterInterface $router */
-        $router = $container->get('router');
-
-        return new CategoryController($seriesService, $movieService, $router);
+        return new MovieController($movieService);
     };
 
     //setup
-    $setupService = new SetupService($seriesService, $movieService, $showStore, $movieStore);
-    $container['setup_service'] = $setupService;
+    $container['setup_service'] = new SetupService([$seriesService, $movieService], [$seriesStore, $movieStore]);
     $container[SetupController::class] = function (Container $container) {
         /** @var SetupService $setupService */
         $setupService = $container->get('setup_service');

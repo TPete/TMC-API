@@ -1,32 +1,12 @@
 <?php
 
-namespace TinyMediaCenter\API\Service;
+namespace TinyMediaCenter\API\Service\Area;
 
 /**
- * Class AbstractController
+ * Class AbstractAreaService
  */
-abstract class AbstractCategoryService
+abstract class AbstractAreaService
 {
-    //TODO setup interfaces for: categories, movies and shows
-    //TODO remove this class ?
-    //TODO do we really need categories and category names?
-    /**
-     * Get categories.
-     */
-    abstract public function getCategories();
-
-    /**
-     * Get categories.
-     */
-    abstract public function getCategoryNames();
-
-//    /**
-//     * Update data.
-//     *
-//     * @throws \Exception
-//     */
-//    abstract public function updateData();
-
     /**
      * @param string $path
      * @param array  $exclude
@@ -68,7 +48,7 @@ abstract class AbstractCategoryService
     }
 
     /**
-     * TODO move to specialized service?
+     * Resize an image.
      *
      * @param string $sourceImagePath
      * @param string $thumbnailImagePath

@@ -1,6 +1,6 @@
 <?php
 
-namespace TinyMediaCenter\API\Service;
+namespace TinyMediaCenter\API\Service\Area;
 
 use TinyMediaCenter\API\Exception\NotFoundException;
 use TinyMediaCenter\API\Exception\ScrapeException;
@@ -11,28 +11,29 @@ use TinyMediaCenter\API\Model\Resource\Area\Category\SeriesModel;
 use TinyMediaCenter\API\Model\Resource\Area\CategoryModel;
 use TinyMediaCenter\API\Model\Resource\AreaModel;
 use TinyMediaCenter\API\Model\Store\SeriesModel as StoreSeriesModel;
-use TinyMediaCenter\API\Service\MediaLibrary\TTVDBWrapper;
-use TinyMediaCenter\API\Service\Store\ShowStoreDB;
+use TinyMediaCenter\API\Service\Api\SeriesApiClientInterface;
+use TinyMediaCenter\API\Service\Store\SeriesStoreInterface;
 
 /**
  * Series service.
  */
-class SeriesService extends AbstractCategoryService implements SeriesServiceInterface
+class SeriesService extends AbstractAreaService implements SeriesServiceInterface
 {
-
     const DEFAULT_CATEGORY = "Serien";
 
     const THUMBNAIL_SIZE = 512;
 
-    /**
-     * @var ShowStoreDB
-     */
-    private $showStoreDB;
+    const AREA = 'SERIES_AREA';
 
     /**
-     * @var TTVDBWrapper
+     * @var SeriesStoreInterface
      */
-    private $ttvdbWrapper;
+    private $seriesStore;
+
+    /**
+     * @var SeriesApiClientInterface
+     */
+    private $seriesApiClient;
 
     /**
      * @var string
@@ -57,15 +58,15 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
     /**
      * Series service constructor.
      *
-     * @param ShowStoreDB  $showStoreDB
-     * @param TTVDBWrapper $ttvdbWrapper
-     * @param string       $path
-     * @param string       $alias
+     * @param SeriesStoreInterface     $seriesStore
+     * @param SeriesApiClientInterface $seriesApiClient
+     * @param string                   $path
+     * @param string                   $alias
      */
-    public function __construct(ShowStoreDB $showStoreDB, TTVDBWrapper $ttvdbWrapper, $path, $alias)
+    public function __construct(SeriesStoreInterface $seriesStore, SeriesApiClientInterface $seriesApiClient, $path, $alias)
     {
-        $this->showStoreDB = $showStoreDB;
-        $this->ttvdbWrapper = $ttvdbWrapper;
+        $this->seriesStore = $seriesStore;
+        $this->seriesApiClient = $seriesApiClient;
         $this->path = $path;
         $this->alias = $alias;
     }
@@ -79,6 +80,14 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
             'series',
             'Series area overview'
         );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getArea()
+    {
+        return self::AREA;
     }
 
     /**
@@ -102,7 +111,7 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
     {
         $result = [];
 
-        foreach ($this->showStoreDB->getShows($category) as $model) {
+        foreach ($this->seriesStore->getSeries($category) as $model) {
             $result[] = $this->convertModels($model, $category);
         }
 
@@ -122,8 +131,8 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
      */
     public function update($category, $series, $title, $tvDbId, $lang)
     {
-        $this->showStoreDB->updateDetails($category, $series, $title, $tvDbId, $lang);
-        $model = $this->showStoreDB->getShowDetails($category, $series);
+        $this->seriesStore->updateDetails($category, $series, $title, $tvDbId, $lang);
+        $model = $this->seriesStore->getSeriesDetails($category, $series);
         $this->updateEpisodes($model);
         $this->fetchBackgroundImage($category, $series, $model->getApiId(), true);
         $this->updateThumbnail($category, $series, true);
@@ -140,7 +149,7 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
         $episodeCount = 0;
         $current = 0;
 
-        foreach ($this->showStoreDB->getEpisodes($category, $series) as $episode) {
+        foreach ($this->seriesStore->getEpisodes($category, $series) as $episode) {
             if ($current !== $episode["season_no"] && $current > 0) {
                 $seasons[] = new SeasonModel($current, $episodeCount);
                 $episodeCount = 0;
@@ -172,7 +181,7 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
      */
     public function getEpisodes($category, $series, $season)
     {
-        $data = $this->showStoreDB->getEpisodes($category, $series);
+        $data = $this->seriesStore->getEpisodes($category, $series);
         $files = glob(sprintf("%s%s/*.avi", $this->getCategoryPath($category), $series));
         $episodes = [];
 
@@ -350,14 +359,14 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
             'protocol' => $protocol,
             'success' => true,
         ];
-        $protocol = $this->updateEpisodesForSeries($this->showStoreDB->getShows($category), $category);
+        $protocol = $this->updateEpisodesForSeries($this->seriesStore->getSeries($category), $category);
         $steps[] = [
             'description' => 'Update episodes',
             'protocol' => $protocol,
             'success' => $this->isMaintenanceSuccessful($protocol),
             'errors' => $this->getMaintenanceErrors($protocol),
         ];
-        $protocol = $this->fetchBackgroundImagesForSeries($this->showStoreDB->getShows($category), $category); //fetching shows from db, as they might have been updated
+        $protocol = $this->fetchBackgroundImagesForSeries($this->seriesStore->getSeries($category), $category); //fetching shows from db, as they might have been updated
         $steps[] = [
             'description' => 'Fetch background images',
             'protocol' => $protocol,
@@ -392,7 +401,7 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
                     'object' => $title,
                     'success' => true,
                 ];
-                $added = $this->showStoreDB->createIfMissing($category, $folder, $title);
+                $added = $this->seriesStore->createIfMissing($category, $folder, $title);
 
                 if (!empty($added)) {
                     $this->updateTvDbId($category, $folder, $title);
@@ -420,8 +429,8 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
      */
     private function updateTvDbId($category, $folder, $title, $language = 'de')
     {
-        $tvDbId = $this->ttvdbWrapper->getSeriesId($title);
-        $this->showStoreDB->updateDetails($category, $folder, $title, $tvDbId, $language);
+        $tvDbId = $this->seriesApiClient->getSeriesId($title);
+        $this->seriesStore->updateDetails($category, $folder, $title, $tvDbId, $language);
 
         return $tvDbId;
     }
@@ -435,7 +444,8 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
     {
         $folders = $this->getFoldersByCategory($category);
 
-        return $this->showStoreDB->removeIfObsolete($category, $folders);
+        //TODO use show ids instead of folders
+        return $this->seriesStore->removeIfObsolete($category, $folders);
     }
 
     /**
@@ -483,8 +493,8 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
      */
     private function updateEpisodes(StoreSeriesModel $seriesModel)
     {
-        $seasons = $this->ttvdbWrapper->getSeriesInfoById($seriesModel->getApiId(), $seriesModel->getOrderingScheme(), $seriesModel->getLanguage());
-        $this->showStoreDB->updateEpisodes($seriesModel->getId(), $seasons);
+        $seasons = $this->seriesApiClient->getSeriesInfoById($seriesModel->getApiId(), $seriesModel->getOrderingScheme(), $seriesModel->getLanguage());
+        $this->seriesStore->updateEpisodes($seriesModel->getId(), $seasons);
     }
 
     /**
@@ -534,7 +544,7 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
         }
 
         if (!file_exists($backgroundImage)) {
-            $this->ttvdbWrapper->downloadBG($tvDbId, $backgroundImage);
+            $this->seriesApiClient->downloadBackgroundImage($tvDbId, $backgroundImage);
         }
     }
 
@@ -624,7 +634,7 @@ class SeriesService extends AbstractCategoryService implements SeriesServiceInte
      */
     private function getSeriesDetails($category, $id)
     {
-        $model = $this->showStoreDB->getShowDetails($category, $id);
+        $model = $this->seriesStore->getSeriesDetails($category, $id);
 
         return $this->convertModels($model, $category);
     }

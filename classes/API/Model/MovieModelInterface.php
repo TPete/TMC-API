@@ -1,13 +1,11 @@
 <?php
 
-namespace TinyMediaCenter\API\Model\Resource\Movie;
-
-use TinyMediaCenter\API\Model\ResourceModelInterface;
+namespace TinyMediaCenter\API\Model;
 
 /**
  * Interface MovieModelInterface
  */
-interface MovieModelInterface extends ResourceModelInterface
+interface MovieModelInterface
 {
     /**
      * @return string

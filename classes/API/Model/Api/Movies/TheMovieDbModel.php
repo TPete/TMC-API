@@ -1,8 +1,8 @@
 <?php
 
-namespace TinyMediaCenter\API\Model\Resource\Movie\Api;
+namespace TinyMediaCenter\API\Model\Api\Movies;
 
-use TinyMediaCenter\API\Model\Resource\Movie\AbstractMovieModel;
+use TinyMediaCenter\API\Model\AbstractMovieModel;
 
 /**
  * Class TheMovieDbModel
@@ -43,25 +43,21 @@ class TheMovieDbModel extends AbstractMovieModel
      * TheMovieDbModel constructor.
      *
      * @param array $data
-     *
-     * @throws \Exception
      */
     public function __construct(array $data)
     {
-        if (false === $this->isValid($data)) {
-            throw new \Exception('Invalid data');
-        }
-
-        $this->id = $data[self::KEY_ID];
-        $this->title = $data[self::KEY_TITLE];
-        $this->originalTitle = $data[self::KEY_ORIGINAL_TITLE];
-        $this->overview = $data[self::KEY_OVERVIEW];
-        $this->releaseDate = $this->parseReleaseDate($data[self::KEY_RELEASE_DATE]);
-        $this->genres = $this->parseGenres($data[self::KEY_GENRES]);
-        $this->countries = $this->parseCountries($data[self::KEY_COUNTRIES]);
-        $this->directors = $this->parseDirectors($data[self::KEY_CREDITS]);
-        $this->actors = $this->parseActors($data[self::KEY_CREDITS]);
-        $this->collectionId = $this->parseCollectionInfo($data[self::KEY_COLLECTION_INFO]);
+        parent::__construct(
+            $data[self::KEY_ID],
+            $data[self::KEY_TITLE],
+            $data[self::KEY_ORIGINAL_TITLE],
+            $data[self::KEY_OVERVIEW],
+            $this->parseReleaseDate($data[self::KEY_RELEASE_DATE]),
+            $this->parseGenres($data[self::KEY_GENRES]),
+            $this->parseDirectors($data[self::KEY_CREDITS]),
+            $this->parseActors($data[self::KEY_CREDITS]),
+            $this->parseCountries($data[self::KEY_COUNTRIES]),
+            $this->parseCollectionInfo($data[self::KEY_COLLECTION_INFO])
+        );
     }
 
     /**
@@ -148,15 +144,5 @@ class TheMovieDbModel extends AbstractMovieModel
     private function parseCollectionInfo(array $raw = null)
     {
         return isset($raw[self::KEY_ID]) ? $raw[self::KEY_ID] : null;
-    }
-
-    /**
-     * @param array $data
-     *
-     * @return bool
-     */
-    private function isValid(array $data)
-    {
-        return true;
     }
 }

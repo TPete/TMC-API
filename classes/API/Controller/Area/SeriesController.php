@@ -5,7 +5,7 @@ namespace TinyMediaCenter\API\Controller\Area;
 use Slim\Http\Request;
 use Slim\Http\Response;
 use TinyMediaCenter\API\Controller\AbstractController;
-use TinyMediaCenter\API\Service\SeriesServiceInterface;
+use TinyMediaCenter\API\Service\Area\SeriesServiceInterface;
 
 /**
  * Controller of the series area.

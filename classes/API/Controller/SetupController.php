@@ -11,9 +11,17 @@ use TinyMediaCenter\API\Service\SetupService;
 
 /**
  * Class SetupController
+ *
+ * TODO migrate to JSON API
  */
 class SetupController extends AbstractController
 {
+    /**
+     * Setup type: database.
+     */
+    const TYPE_DATABASE = 'db';
+
+
     /**
      * @var SetupService
      */
@@ -72,11 +80,11 @@ class SetupController extends AbstractController
     {
         $res = [];
 
-        if (SetupService::TYPE_DATABASE === $type) {
+        if (self::TYPE_DATABASE === $type) {
             $res = $this->checkDatabase($request);
         }
 
-        if (in_array($type, SetupService::CATEGORIES)) {
+        if ($this->setupService->isValidArea($type)) {
             $res = $this->checkCategory($request, $type);
         }
 
@@ -136,6 +144,6 @@ class SetupController extends AbstractController
         $path = $request->getQueryParam($pathKey);
         $alias = $request->getQueryParam($aliasKey);
 
-        return $this->setupService->checkCategory($category, $path, $alias);
+        return $this->setupService->checkArea($category, $path, $alias);
     }
 }

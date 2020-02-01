@@ -2,18 +2,15 @@
 
 namespace TinyMediaCenter\API\Service\Store;
 
-use TinyMediaCenter\API\Model\MediaFileInfoModel;
-use TinyMediaCenter\API\Model\Resource\Movie\CollectionModelInterface;
-use TinyMediaCenter\API\Model\Resource\Movie\MovieModel;
-use TinyMediaCenter\API\Model\Resource\Movie\MovieModelInterface;
 use TinyMediaCenter\API\Model\DBModel;
-use TinyMediaCenter\API\Service\AbstractStore;
-use TinyMediaCenter\API\Service\MovieService;
+use TinyMediaCenter\API\Model\MediaFileInfoModel;
+use TinyMediaCenter\API\Model\MovieModelInterface;
+use TinyMediaCenter\API\Model\Store\MovieModel;
 
 /**
  * Class MovieStoreDB
  */
-class MovieStoreDB extends AbstractStore
+class MovieStoreDB extends AbstractStore implements MovieStoreInterface
 {
     /**
      * MovieStoreDB constructor.
@@ -27,18 +24,9 @@ class MovieStoreDB extends AbstractStore
     }
 
     /**
-     * @param string $category
-     * @param string $sort
-     * @param string $order
-     * @param string $filter
-     * @param string $genres
-     * @param int    $cnt
-     * @param int    $offset
-     * @param string $alias
-     *
-     * @return array
+     * {@inheritDoc}
      */
-    public function getMovies($category, $sort, $order, $filter, $genres, $cnt, $offset, $alias)
+    public function getMovies($category, $sort, $order, $filter, array $genres, $cnt, $offset)
     {
         $db = $this->connect();
         $sqlCols = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
@@ -53,11 +41,11 @@ class MovieStoreDB extends AbstractStore
 				) col on mov.COLLECTION_ID = col.MOVIE_DB_ID
 				Where mov.category = '".$category."'";
 
-        if (strlen($genres) > 0) {
+        if (count($genres) > 0) {
             $whereGenres = "";
-            $genres = strtolower($genres);
-            $genresArray = explode(",", $genres);
-            foreach ($genresArray as $gen) {
+//            $genres = strtolower($genres);
+//            $genresArray = explode(",", $genres);
+            foreach ($genres as $gen) {
                 $whereGenres .= "and Lower(mov.GENRES) like '%".$gen."%' ";
             }
             $sql .= $whereGenres;
@@ -125,26 +113,19 @@ class MovieStoreDB extends AbstractStore
         }
 
         $stmt = $db->query($sql);
-
         $models = [];
 
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $models[] = $this->createModel($row, $alias);
+            $models[] = $this->createModel($row);
         }
 
         return $models;
     }
 
     /**
-     * @param string $category
-     * @param int    $collectionId
-     * @param int    $cnt
-     * @param int    $offset
-     * @param string $alias
-     *
-     * @return array
+     * {@inheritDoc}
      */
-    public function getMoviesForCollection($category, $collectionId, $cnt, $offset, $alias)
+    public function getMoviesForCollection($category, $collectionId, $cnt, $offset)
     {
         $db = $this->connect();
         $sql = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
@@ -169,20 +150,16 @@ class MovieStoreDB extends AbstractStore
         $models = [];
 
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $models[] = $this->createModel($row, $alias);
+            $models[] = $this->createModel($row);
         }
 
         return $models;
     }
 
     /**
-     * @param string $category
-     * @param int    $id
-     * @param string $alias
-     *
-     * @return MovieModel
+     * {@inheritDoc}
      */
-    public function getMovieById($category, $id, $alias)
+    public function getMovieById($category, $id)
     {
         $sql = "Select mov.id, mov.movie_db_id, mov.title, mov.filename, mov.overview, mov.release_date, mov.genres,
 						mov.countries, mov.actors, mov.director, mov.info, mov.original_title, 
@@ -197,53 +174,11 @@ class MovieStoreDB extends AbstractStore
         $stmt->execute();
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        return $this->createModel($row, $alias);
+        return $this->createModel($row);
     }
 
     /**
-     * @param array  $movie
-     * @param string $alias
-     *
-     * @return MovieModel
-     */
-    private function createModel(array $movie, $alias)
-    {
-        //TODO remove all this path stuff, as well as the file extensions
-        $movie["poster"] = $alias.MovieService::PICTURES_FOLDER."/".$movie["movie_db_id"]."_333x500.jpg";
-        $movie["poster_big"] = $alias.MovieService::PICTURES_FOLDER."/".$movie["movie_db_id"]."_big.jpg";
-        $movie["filename"] = $alias.$movie["filename"];
-
-        return new MovieModel(
-            $movie['id'],
-            $movie['title'],
-            $movie['original_title'],
-            $movie['overview'],
-            \DateTime::createFromFormat('Y-m-d', $movie['release_date']),
-            explode(',', $movie['genres']),
-            [$movie['director']],
-            explode(',', str_replace('&nbsp;', ' ', $movie['actors'])),
-            explode(',', $movie['countries']),
-            $movie['movie_db_id'],
-            $movie['filename'],
-            $movie['poster'],
-            $movie['poster_big'],
-            $movie['info'],
-            $movie['collection_id'],
-            $movie['collection_name']
-        );
-    }
-
-    /**
-     * @param string              $category
-     * @param MovieModelInterface $movie
-     * @param MediaFileInfoModel  $mediaFileInfoModel
-     * @param string              $dir
-     * @param string              $filename
-     * @param string              $id
-     *
-     * @throws \Exception
-     *
-     * @return string
+     * {@inheritDoc}
      */
     public function updateMovie($category, MovieModelInterface $movie, MediaFileInfoModel $mediaFileInfoModel, $dir, $filename, $id = "")
     {
@@ -305,12 +240,11 @@ class MovieStoreDB extends AbstractStore
 
         return $id;
     }
+
     /**
-     * @param string                   $category
-     * @param CollectionModelInterface $collectionModel
-     * @param int                      $id
+     * {@inheritDoc}
      */
-    public function updateCollectionById($category, $collectionModel, $id)
+    public function updateCollection($category, $collectionModel, $id)
     {
         $sql = "Select ID, MOVIE_DB_ID
 				From collections
@@ -362,9 +296,9 @@ class MovieStoreDB extends AbstractStore
     }
 
     /**
-     * @param int $collectionId
+     * {@inheritDoc}
      */
-    public function removeObsoleteCollection($collectionId)
+    public function removeCollection($collectionId)
     {
         $sql = "Delete
 				From collections
@@ -393,7 +327,7 @@ class MovieStoreDB extends AbstractStore
         $stmt->execute();
         $list = array();
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            if (!file_exists($dir.$row["FILENAME"])) {
+            if (!file_exists($dir.$row["FILENAME"])) { //TODO does not belong here
                 $list[] = $row;
             }
         }
@@ -427,7 +361,7 @@ class MovieStoreDB extends AbstractStore
 				Where FILENAME = :filename
 				  and CATEGORY = :category";
         $stmt = $db->prepare($sql);
-        $files = glob($dir."*.avi");
+        $files = glob($dir."*.avi"); //TODO does not belong here
         $missing = [];
 
         foreach ($files as $file) {
@@ -472,6 +406,8 @@ class MovieStoreDB extends AbstractStore
     }
 
     /**
+     * TODO split this into two functions, add them to interface
+     *
      * @param string $category
      *
      * @return array
@@ -536,7 +472,7 @@ class MovieStoreDB extends AbstractStore
             $movieDBIDS[] = $row["MOVIE_DB_ID"];
             $big = sprintf('%s%s_big.jpg', $dir, $row["MOVIE_DB_ID"]);
 
-            if (!file_exists($big)) {
+            if (!file_exists($big)) { //TODO does not belong here
                 $missing[] = $row;
             }
         }
@@ -592,9 +528,8 @@ class MovieStoreDB extends AbstractStore
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
-        $collections = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-        return $collections;
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
     /**
@@ -626,10 +561,38 @@ class MovieStoreDB extends AbstractStore
         return $row["ID"];
     }
 
+    /**
+     * @param string $path
+     *
+     * @return false|string
+     */
     private function getFiletime($path)
     {
-        $fileTime = date("Y-m-d", filemtime($path));
+        return date("Y-m-d", filemtime($path));
+    }
 
-        return $fileTime;
+    /**
+     * @param array $movie
+     *
+     * @return MovieModel
+     */
+    private function createModel(array $movie)
+    {
+        return new MovieModel(
+            $movie['id'],
+            $movie['title'],
+            $movie['original_title'],
+            $movie['overview'],
+            \DateTime::createFromFormat('Y-m-d', $movie['release_date']),
+            explode(',', $movie['genres']),
+            [$movie['director']],
+            explode(',', str_replace('&nbsp;', ' ', $movie['actors'])),
+            explode(',', $movie['countries']),
+            $movie['movie_db_id'],
+            $movie['filename'],
+            $movie['info'],
+            $movie['collection_id'],
+            $movie['collection_name']
+        );
     }
 }

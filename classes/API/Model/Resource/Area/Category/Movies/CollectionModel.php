@@ -1,6 +1,6 @@
 <?php
 
-namespace TinyMediaCenter\API\Model\Resource\Movie;
+namespace TinyMediaCenter\API\Model\Resource\Area\Category\Movies;
 
 use TinyMediaCenter\API\Model\AbstractResourceModel;
 

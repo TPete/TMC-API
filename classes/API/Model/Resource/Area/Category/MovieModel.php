@@ -1,11 +1,13 @@
 <?php
 
-namespace TinyMediaCenter\API\Model\Resource\Movie;
+namespace TinyMediaCenter\API\Model\Resource\Area\Category;
+
+use TinyMediaCenter\API\Model\ResourceModelInterface;
 
 /**
  * Class MovieModel
  */
-class MovieModel extends AbstractMovieModel
+class MovieModel extends SimpleMovieModel implements ResourceModelInterface
 {
     /**
      * @var string
@@ -59,21 +61,12 @@ class MovieModel extends AbstractMovieModel
      */
     public function __construct($id, $title, $originalTitle, $overview, \DateTime $releaseDate, array $genres, array $directors, array $actors, array $countries, $movieDbId, $filename, $poster, $posterBig, $info, $collectionId = null, $collectionName = null)
     {
-        $this->id = $id;
-        $this->title = $title;
-        $this->originalTitle = $originalTitle;
-        $this->overview = $overview;
-        $this->releaseDate = $releaseDate;
-        $this->genres = $genres;
-        $this->directors = $directors;
-        $this->actors = $actors;
-        $this->countries = $countries;
+        parent::__construct($id, $title, $originalTitle, $overview, $releaseDate, $genres, $directors, $actors, $countries, $collectionId);
         $this->movieDbId = $movieDbId;
         $this->filename = $filename;
         $this->poster = $poster;
         $this->posterBig = $posterBig;
         $this->info = $info;
-        $this->collectionId = $collectionId;
         $this->collectionName = $collectionName;
     }
 

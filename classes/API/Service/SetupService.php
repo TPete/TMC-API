@@ -2,8 +2,7 @@
 
 namespace TinyMediaCenter\API\Service;
 
-use TinyMediaCenter\API\Service\Store\ShowStoreDB;
-use TinyMediaCenter\API\Service\Store\MovieStoreDB;
+use TinyMediaCenter\API\Model\Resource\Area\CategoryModel;
 use TinyMediaCenter\API\Model\DBModel;
 
 /**
@@ -12,62 +11,29 @@ use TinyMediaCenter\API\Model\DBModel;
 class SetupService
 {
     /**
-     * Setup type: database.
+     * @var AreaServiceInterface[]
      */
-    const TYPE_DATABASE = 'db';
+    private $services;
 
     /**
-     * Setup type: movies category.
+     * @var StoreInterface[]
      */
-    const TYPE_CATEGORY_MOVIES = 'movies';
-
-    /**
-     * Setup type: shows category.
-     */
-    const TYPE_CATEGORY_SHOWS = 'shows';
-
-    /**
-     * Category collection.
-     */
-    const CATEGORIES = [
-        self::TYPE_CATEGORY_MOVIES,
-        self::TYPE_CATEGORY_SHOWS,
-    ];
-
-    /**
-     * @var SeriesService
-     */
-    private $showService;
-
-    /**
-     * @var MovieService
-     */
-    private $movieService;
-
-    /**
-     * @var ShowStoreDB
-     */
-    private $showStoreDB;
-
-    /**
-     * @var MovieStoreDB
-     */
-    private $movieStoreDB;
+    private $stores;
 
     /**
      * SetupService constructor.
      *
-     * @param SeriesService $showService
-     * @param MovieService  $movieService
-     * @param ShowStoreDB   $showStoreDB
-     * @param MovieStoreDB  $movieStoreDB
+     * @param AreaServiceInterface[] $services
+     * @param StoreInterface[]       $stores
      */
-    public function __construct(SeriesService $showService, MovieService $movieService, ShowStoreDB $showStoreDB, MovieStoreDB $movieStoreDB)
+    public function __construct(array $services, array $stores)
     {
-        $this->showService = $showService;
-        $this->movieService = $movieService;
-        $this->showStoreDB = $showStoreDB;
-        $this->movieStoreDB = $movieStoreDB;
+        $this->stores = $stores;
+        $this->services = [];
+        /** @var AreaServiceInterface $service */
+        foreach ($services as $service) {
+            $this->services[$service->getArea()] = $service;
+        }
     }
 
     /**
@@ -79,48 +45,18 @@ class SetupService
      */
     public function checkDatabase(DBModel $dbModel)
     {
-        $res = [];
-
         try {
-            $res['dbAccess'] = 'Ok';
-            $checkShows  = $this->showStoreDB->checkSetup($dbModel);
-            $checkMovies = $this->movieStoreDB->checkSetup($dbModel);
+            $res = ['dbAccess' => 'Ok'];
+            $allSetup = true;
 
-            if ($checkShows && $checkMovies) {
-                $res['dbSetup'] = 'Ok';
-            } else {
-                $res['dbSetup'] = 'Error';
+            foreach ($this->stores as $store) {
+                $allSetup = $store->checkSetup($dbModel) && $allSetup;
             }
+
+            $res['dbSetup'] = $allSetup ? 'Ok' : 'Error';
         } catch (\PDOException $e) {
             $res['dbAccess'] = 'Error: '.$e->getMessage();
             $res['dbSetup']  = 'Error';
-        }
-
-        return $res;
-    }
-
-    /**
-     * Verifies that the category is set up correctly.
-     *
-     * @param string $category
-     * @param string $path
-     * @param string $alias
-     *
-     * @throws \Exception
-     *
-     * @return array
-     */
-    public function checkCategory($category, $path, $alias)
-    {
-        $res = [];
-
-        if (in_array($category, self::CATEGORIES) && is_dir($path) && is_writable($path) && $this->isValid($alias)) {
-            $service = $this->getServiceByCategory($category);
-
-            $res['result']  = 'Ok';
-            $res['folders'] = $service->getCategoryNames();
-        } else {
-            $res['result'] = 'Error';
         }
 
         return $res;
@@ -133,38 +69,73 @@ class SetupService
      */
     public function setupDatabase()
     {
-        $checkShows = $this->showStoreDB->checkSetup();
-        $checkMovies = $this->movieStoreDB->checkSetup();
-
-        if (false === $checkShows && false === $checkMovies) {
-            $this->showStoreDB->setupDB();
-            $this->movieStoreDB->setupDB();
-
-            return true;
+        foreach ($this->stores as $store) {
+            if (!$store->checkSetup()) {
+                $store->setup();
+            }
         }
 
-        return false;
+        return true;
     }
 
     /**
-     * @param string $category
+     * @param string $area
+     *
+     * @return bool
+     */
+    public function isValidArea($area)
+    {
+        return in_array($area, array_keys($this->services));
+    }
+
+    /**
+     * Verifies that the area is set up correctly.
+     *
+     * @param string $area
+     * @param string $path
+     * @param string $alias
      *
      * @throws \Exception
      *
-     * @return AbstractCategoryService
+     * @return array
      */
-    private function getServiceByCategory($category)
+    public function checkArea($area, $path, $alias)
     {
-        if (false === in_array($category, self::CATEGORIES)) {
-            throw new \Exception(sprintf('Invalid category %s', $category));
+        $res = [];
+
+        if ($this->isValidArea($area) && $this->isValidPath($path) && $this->isValidAlias($alias)) {
+            $service = $this->getServiceByArea($area);
+            $categories = array_map(function (CategoryModel $model) {
+                return $model->getId();
+            }, $service->getCategories());
+
+            $res['result']  = 'Ok';
+            $res['folders'] = $categories;
+        } else {
+            $res['result'] = 'Error';
         }
 
-        $services = [
-            self::TYPE_CATEGORY_MOVIES => $this->movieService,
-            self::TYPE_CATEGORY_SHOWS => $this->showService,
-        ];
+        return $res;
+    }
 
-        return $services[$category];
+    /**
+     * @param string $area
+     *
+     * @return AreaServiceInterface
+     */
+    private function getServiceByArea($area)
+    {
+        return $this->services[$area];
+    }
+
+    /**
+     * @param string $path
+     *
+     * @return bool
+     */
+    private function isValidPath($path)
+    {
+        return is_dir($path) && is_writable($path);
     }
 
     /**
@@ -172,7 +143,7 @@ class SetupService
      *
      * @return bool
      */
-    private function isValid($url)
+    private function isValidAlias($url)
     {
         if (!function_exists('curl_init')) {
             die('Sorry cURL is not installed!');

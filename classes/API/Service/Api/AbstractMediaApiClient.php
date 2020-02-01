@@ -1,17 +1,19 @@
 <?php
 
-namespace TinyMediaCenter\API\Service;
+namespace TinyMediaCenter\API\Service\Api;
 
 /**
- * Class AbstractDBAPIWrapper
+ * Class AbstractMediaApiClient
+ *
+ * TODO this should be used by all media api clients
  */
-abstract class AbstractDBAPIWrapper
+abstract class AbstractMediaApiClient
 {
     protected $baseUrl;
     protected $defaultArgs;
 
     /**
-     * DBAPIWrapper constructor.
+     * AbstractMediaApiClient constructor.
      *
      * @param string $baseUrl
      * @param array  $defaultArgs

@@ -1,9 +1,9 @@
 <?php
 
-namespace TinyMediaCenter\API\Model\Resource\Movie;
+namespace TinyMediaCenter\API\Model;
 
 /**
- * Class AbstractMovieModel
+ * Class BasicMovieModel
  */
 abstract class AbstractMovieModel implements MovieModelInterface
 {
@@ -66,6 +66,34 @@ abstract class AbstractMovieModel implements MovieModelInterface
      * @var string
      */
     protected $collectionId;
+
+    /**
+     * BasicMovieModel constructor.
+     *
+     * @param string    $id
+     * @param string    $title
+     * @param string    $originalTitle
+     * @param string    $overview
+     * @param \DateTime $releaseDate
+     * @param array     $genres
+     * @param array     $directors
+     * @param array     $actors
+     * @param array     $countries
+     * @param string    $collectionId
+     */
+    public function __construct($id, $title, $originalTitle, $overview, \DateTime $releaseDate, array $genres, array $directors, array $actors, array $countries, $collectionId)
+    {
+        $this->id = $id;
+        $this->title = $title;
+        $this->originalTitle = $originalTitle;
+        $this->overview = $overview;
+        $this->releaseDate = $releaseDate;
+        $this->genres = $genres;
+        $this->countries = $countries;
+        $this->directors = $directors;
+        $this->actors = $actors;
+        $this->collectionId = $collectionId;
+    }
 
     /**
      * {@inheritdoc}
@@ -153,27 +181,5 @@ abstract class AbstractMovieModel implements MovieModelInterface
     public function getCollectionId()
     {
         return $this->collectionId;
-    }
-
-    /**
-     * @return array
-     */
-    public function toArray()
-    {
-        return [
-            'type' => $this->getType(),
-            'id' => $this->getId(),
-            'attributes' => [
-                self::MOVIE_TITLE => $this->getTitle(),
-                self::MOVIE_ORIGINAL_TITLE => $this->getOriginalTitle(),
-                self::MOVIE_OVERVIEW => $this->getOverview(),
-                self::MOVIE_RELEASE_DATE => $this->getReleaseDate()->format('Y-m-d'),
-                self::MOVIE_DIRECTORS => $this->getDirectors(),
-                self::MOVIE_ACTORS => $this->getActors(),
-                self::MOVIE_COUNTRIES => $this->getCountries(),
-                self::MOVIE_GENRES => $this->getGenres(),
-                self::MOVIE_COLLECTION_ID => $this->getCollectionId(), //TODO move to relationship?
-            ],
-        ];
     }
 }
