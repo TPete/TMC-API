@@ -3,7 +3,8 @@
 namespace TinyMediaCenter\API\Service\Api\Movies;
 
 use TinyMediaCenter\API\Model\Api\Movies\TheMovieDbModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\CollectionModel;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\Collection;
+use TinyMediaCenter\API\Service\Api\AbstractMediaApiClient;
 use TinyMediaCenter\API\Service\Api\MoviesApiClientInterface;
 
 /**
@@ -11,10 +12,8 @@ use TinyMediaCenter\API\Service\Api\MoviesApiClientInterface;
  *
  * @see https://developers.themoviedb.org/3/
  */
-class TheMoviesDbApiClientClient implements MoviesApiClientInterface
+class TheMoviesDbApiClient extends AbstractMediaApiClient implements MoviesApiClientInterface
 {
-    const BASE_URL = 'http://api.themoviedb.org/3/';
-
     const MOVIE_INFO_URL = 'movie';
 
     const COLLECTION_INFO_URL = 'collection';
@@ -46,11 +45,6 @@ class TheMoviesDbApiClientClient implements MoviesApiClientInterface
     /**
      * @var array
      */
-    private $defaultArgs;
-
-    /**
-     * @var array
-     */
     private $config;
 
     /**
@@ -61,10 +55,10 @@ class TheMoviesDbApiClientClient implements MoviesApiClientInterface
      */
     public function __construct($apiKey, $language)
     {
-        $this->defaultArgs = [
+        parent::__construct('http://api.themoviedb.org/3/', [
             self::PARAM_API_KEY => $apiKey,
             self::PARAM_LANGUAGE => $language,
-        ];
+        ]);
     }
 
     /**
@@ -98,12 +92,10 @@ class TheMoviesDbApiClientClient implements MoviesApiClientInterface
     {
         $url = self::SEARCH_MOVIE_URL;
         $args = [self::ARGUMENT_QUERY => $title];
-        $data = $this->get($url, $args);
+        $data = $this->curlDownload($url, $args, true);
 
-        if (isset($data[self::KEY_RESULTS])) {
-            $results = $data[self::KEY_RESULTS];
-
-            $id = $results[0][self::KEY_ID];
+        if (isset($data[self::KEY_RESULTS]) && isset($data[self::KEY_RESULTS][0])) {
+            $id = $data[self::KEY_RESULTS][0][self::KEY_ID];
 
             return $this->getMovieInfo($id);
         }
@@ -119,7 +111,7 @@ class TheMoviesDbApiClientClient implements MoviesApiClientInterface
     public function getCollectionInfo($id)
     {
         $url = sprintf('%s/%s', self::COLLECTION_INFO_URL, $id);
-        $data = $this->get($url);
+        $data = $this->curlDownload($url, [], true);
 
         if (null === $data || false === is_array($data)) {
             throw new \Exception('Invalid data');
@@ -130,7 +122,7 @@ class TheMoviesDbApiClientClient implements MoviesApiClientInterface
         }
 
         //TODO should be a different model
-        return new CollectionModel($data['id'], $data['name'], $data['overview'], $data['parts']);
+        return new Collection($data['id'], $data['name'], $data['overview'], $data['parts']);
     }
 
     /**
@@ -152,7 +144,7 @@ class TheMoviesDbApiClientClient implements MoviesApiClientInterface
             $args = ['append_to_response' => 'credits'];
         }
 
-        $data = $this->get($url, $args);
+        $data = $this->curlDownload($url, $args, true);
 
         if (null === $data || false === is_array($data)) {
             throw new \Exception('Invalid data');
@@ -188,52 +180,9 @@ class TheMoviesDbApiClientClient implements MoviesApiClientInterface
     private function getConfiguration()
     {
         if (null === $this->config) {
-            $this->config = $this->get(self::CONFIGURATION_URL);
+            $this->config = $this->curlDownload(self::CONFIGURATION_URL, [], true);
         }
 
         return $this->config;
-    }
-
-    /**
-     * @param string $url
-     * @param array  $args
-     *
-     * @return mixed
-     */
-    private function get($url, $args = [])
-    {
-        $args = array_merge($this->defaultArgs, $args);
-        $url = sprintf('%s%s?%s', self::BASE_URL, $url, http_build_query($args));
-
-        if (!function_exists('curl_init')) {
-            die('Sorry cURL is not installed!');
-        }
-
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_HEADER, false);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Accept: application/json"]);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        $output = curl_exec($ch);
-        curl_close($ch);
-
-        return json_decode($output, true);
-    }
-
-    /**
-     * @param string $url
-     *
-     * @return string
-     */
-    private function downloadImage($url)
-    {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_HEADER, 0);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
-        $raw = curl_exec($ch);
-        curl_close($ch);
-
-        return $raw;
     }
 }

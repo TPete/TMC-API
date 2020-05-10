@@ -2,10 +2,10 @@
 
 namespace TinyMediaCenter\API\Service\Store;
 
-use TinyMediaCenter\API\Model\CollectionModelInterface;
-use TinyMediaCenter\API\Model\MediaFileInfoModel;
-use TinyMediaCenter\API\Model\MovieModelInterface;
-use TinyMediaCenter\API\Model\Store\MovieModel;
+use TinyMediaCenter\API\Model\CollectionInterface;
+use TinyMediaCenter\API\Model\MediaFileInfo;
+use TinyMediaCenter\API\Model\MovieInterface;
+use TinyMediaCenter\API\Model\Store\Movie;
 
 /**
  * Interface MovieStoreInterface
@@ -23,7 +23,7 @@ interface MovieStoreInterface extends StoreInterface
      * @param int    $cnt
      * @param int    $offset
      *
-     * @return MovieModel[]
+     * @return Movie[]
      */
     public function getMovies($category, $sort, $order, $filter, array $genres, $cnt, $offset);
 
@@ -35,7 +35,7 @@ interface MovieStoreInterface extends StoreInterface
      * @param int    $cnt
      * @param int    $offset
      *
-     * @return MovieModel[]
+     * @return Movie[]
      */
     public function getMoviesForCollection($category, $collectionId, $cnt, $offset);
 
@@ -45,30 +45,30 @@ interface MovieStoreInterface extends StoreInterface
      * @param string $category
      * @param int    $id
      *
-     * @return MovieModel
+     * @return Movie
      */
     public function getMovieById($category, $id);
 
     /**
      * Update a movie.
      *
-     * @param string              $category
-     * @param MovieModelInterface $movie
-     * @param MediaFileInfoModel  $mediaFileInfoModel
-     * @param string              $dir
-     * @param string              $filename
-     * @param string              $id
+     * @param string         $category
+     * @param MovieInterface $movie
+     * @param MediaFileInfo  $mediaFileInfoModel
+     * @param string         $dir
+     * @param string         $filename
+     * @param string         $id
      *
      * @throws \Exception
      *
      * @return string
      */
-    public function updateMovie($category, MovieModelInterface $movie, MediaFileInfoModel $mediaFileInfoModel, $dir, $filename, $id = "");
+    public function updateMovie($category, MovieInterface $movie, MediaFileInfo $mediaFileInfoModel, $dir, $filename, $id = "");
 
     /**
-     * @param string                   $category
-     * @param CollectionModelInterface $collectionModel
-     * @param int                      $id
+     * @param string              $category
+     * @param CollectionInterface $collectionModel
+     * @param int                 $id
      */
     public function updateCollection($category, $collectionModel, $id);
 

@@ -1,86 +1,66 @@
 <?php
 
-namespace TinyMediaCenter\API\Model\Store;
+namespace TinyMediaCenter\API\Model;
 
 /**
- * Class MovieModel
+ * Abstract base class for the movies.
  */
-class MovieModel
+abstract class AbstractMovie implements MovieInterface
 {
     /**
-     * @var int
+     * @var string
      */
-    private $id;
+    protected $id;
 
     /**
      * @var string
      */
-    private $title;
+    protected $title;
 
     /**
      * @var string
      */
-    private $originalTitle;
+    protected $originalTitle;
 
     /**
      * @var string
      */
-    private $overview;
+    protected $overview;
 
     /**
      * @var \DateTime
      */
-    private $releaseDate;
+    protected $releaseDate;
 
     /**
      * @var array
      */
-    private $genres;
+    protected $genres;
 
     /**
      * @var array
      */
-    private $directors;
+    protected $countries;
 
     /**
      * @var array
      */
-    private $actors;
+    protected $directors;
 
     /**
      * @var array
      */
-    private $countries;
+    protected $actors;
 
     /**
      * @var string
      */
-    private $apiId;
+    protected $collectionId;
 
     /**
-     * @var string
-     */
-    private $filename;
-
-    /**
-     * @var string
-     */
-    private $info;
-
-    /**
-     * @var string
-     */
-    private $collectionId;
-
-    /**
-     * @var string
-     */
-    private $collectionName;
-
-    /**
-     * MovieModel constructor.
+     * BasicMovieModel constructor.
      *
-     * @param int       $id
+     * @param string    $id
      * @param string    $title
      * @param string    $originalTitle
      * @param string    $overview
@@ -89,13 +69,9 @@ class MovieModel
      * @param array     $directors
      * @param array     $actors
      * @param array     $countries
-     * @param string    $apiId
-     * @param string    $filename
-     * @param string    $info
      * @param string    $collectionId
-     * @param string    $collectionName
      */
-    public function __construct($id, $title, $originalTitle, $overview, \DateTime $releaseDate, array $genres, array $directors, array $actors, array $countries, $apiId, $filename, $info, $collectionId, $collectionName)
+    public function __construct($id, $title, $originalTitle, $overview, \DateTime $releaseDate, array $genres, array $directors, array $actors, array $countries, $collectionId)
     {
         $this->id = $id;
         $this->title = $title;
@@ -103,18 +79,14 @@ class MovieModel
         $this->overview = $overview;
         $this->releaseDate = $releaseDate;
         $this->genres = $genres;
+        $this->countries = $countries;
         $this->directors = $directors;
         $this->actors = $actors;
-        $this->countries = $countries;
-        $this->apiId = $apiId;
-        $this->filename = $filename;
-        $this->info = $info;
         $this->collectionId = $collectionId;
-        $this->collectionName = $collectionName;
     }
 
     /**
-     * @return int
+     * {@inheritdoc}
      */
     public function getId()
     {
@@ -122,7 +94,15 @@ class MovieModel
     }
 
     /**
-     * @return string
+     * {@inheritdoc}
+     */
+    public function getType(): string
+    {
+        return 'movie';
+    }
+
+    /**
+     * {@inheritdoc}
      */
     public function getTitle()
     {
@@ -130,7 +110,7 @@ class MovieModel
     }
 
     /**
-     * @return string
+     * {@inheritdoc}
      */
     public function getOriginalTitle()
     {
@@ -138,7 +118,7 @@ class MovieModel
     }
 
     /**
-     * @return string
+     * {@inheritdoc}
      */
     public function getOverview()
     {
@@ -146,7 +126,7 @@ class MovieModel
     }
 
     /**
-     * @return \DateTime
+     * {@inheritdoc}
      */
     public function getReleaseDate()
     {
@@ -154,7 +134,7 @@ class MovieModel
     }
 
     /**
-     * @return array
+     * {@inheritdoc}
      */
     public function getGenres()
     {
@@ -162,7 +142,7 @@ class MovieModel
     }
 
     /**
-     * @return array
+     * {@inheritdoc}
      */
     public function getDirectors()
     {
@@ -170,7 +150,7 @@ class MovieModel
     }
 
     /**
-     * @return array
+     * {@inheritdoc}
      */
     public function getActors()
     {
@@ -178,7 +158,7 @@ class MovieModel
     }
 
     /**
-     * @return array
+     * {@inheritdoc}
      */
     public function getCountries()
     {
@@ -186,42 +166,10 @@ class MovieModel
     }
 
     /**
-     * @return string
-     */
-    public function getApiId()
-    {
-        return $this->apiId;
-    }
-
-    /**
-     * @return string
-     */
-    public function getFilename()
-    {
-        return $this->filename;
-    }
-
-    /**
-     * @return string
-     */
-    public function getInfo()
-    {
-        return $this->info;
-    }
-
-    /**
-     * @return string
+     * {@inheritdoc}
      */
     public function getCollectionId()
     {
         return $this->collectionId;
-    }
-
-    /**
-     * @return string
-     */
-    public function getCollectionName()
-    {
-        return $this->collectionName;
     }
 }

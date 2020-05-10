@@ -68,12 +68,6 @@ class IndexController extends AbstractController
      */
     public function areasAction(Request $request, Response $response)
     {
-        //expects tv shows to be in sub folders of $config["pathShows"]
-        //where each sub folder will be listed as a different category
-
-        //expects movies to be directly in $config["pathMovies"]
-        //which will be listed as a single category
-        //TODO: make this consistent and/or more flexible
         return $response->withJson([
             'meta' => [
                 'description' => 'The API has several main areas. Find further information in the "links" entry.',

@@ -2,12 +2,12 @@
 
 namespace TinyMediaCenter\API\Model\Resource;
 
-use TinyMediaCenter\API\Model\AbstractResourceModel;
+use TinyMediaCenter\API\Model\AbstractResource;
 
 /**
  * Class AreaModel
  */
-class AreaModel extends AbstractResourceModel
+class Area extends AbstractResource
 {
     /**
      * @var string
@@ -25,7 +25,7 @@ class AreaModel extends AbstractResourceModel
      * @param string $id
      * @param string $description
      */
-    public function __construct($id, $description)
+    public function __construct(string $id, string $description)
     {
         parent::__construct($id);
         $this->description = $description;
@@ -34,7 +34,7 @@ class AreaModel extends AbstractResourceModel
     /**
      * @return string
      */
-    public function getDescription()
+    public function getDescription(): string
     {
         return $this->description;
     }
@@ -42,7 +42,7 @@ class AreaModel extends AbstractResourceModel
     /**
      * {@inheritDoc}
      */
-    public function toArray()
+    public function toArray(): array
     {
         return array_merge(
             parent::toArray(),

@@ -1,0 +1,12 @@
+{
+	"pathMovies": "\/media\/tiny_movies\/",
+	"aliasMovies": "\/tvmovies_test\/",
+	"pathShows": "\/media\/tiny_series\/",
+	"aliasShows": "\/tvshows_test\/",
+	"dbHost": "localhost",
+	"dbName": "test_tmc",
+	"dbUser": "test_tmc_usr",
+	"dbPassword": "hngker2390glw",
+	"TMDBApiKey": "20e2e98c46fc5f81ab0f438fdf3f73b5",
+	"TTVDBApiKey": "2F0A44BB473DF27C"
+}

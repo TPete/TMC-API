@@ -5,7 +5,7 @@ namespace TinyMediaCenter\API\Model;
 /**
  * Interface CollectionModelInterface
  */
-interface CollectionModelInterface
+interface CollectionInterface
 {
     /**
      * @return int

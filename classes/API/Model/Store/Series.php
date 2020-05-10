@@ -2,7 +2,10 @@
 
 namespace TinyMediaCenter\API\Model\Store;
 
-class SeriesModel
+/**
+ * A TV series.
+ */
+class Series
 {
     /**
      * @var int

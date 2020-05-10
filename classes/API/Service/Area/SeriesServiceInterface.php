@@ -2,11 +2,11 @@
 
 namespace TinyMediaCenter\API\Service\Area;
 
-use TinyMediaCenter\API\Model\Resource\Area\Category\Series\MaintenanceModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Season\EpisodeModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Series\SeasonModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\SeriesModel;
-use TinyMediaCenter\API\Model\Resource\AreaModel;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Maintenance;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Season\Episode;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Season;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series;
+use TinyMediaCenter\API\Model\Resource\Area;
 
 /**
  * Series service.
@@ -23,9 +23,9 @@ interface SeriesServiceInterface extends AreaServiceInterface
     /**
      * Get meta info about the series area.
      *
-     * @return AreaModel
+     * @return Area
      */
-    public function getMetaInfo();
+    public function getMetaInfo(): Area;
 
     /**
      * Get all series of a category.
@@ -34,95 +34,122 @@ interface SeriesServiceInterface extends AreaServiceInterface
      *
      * @throws \Exception
      *
-     * @return SeriesModel[]
+     * @return Series[]
      */
-    public function getByCategory($category);
+    public function getByCategory(string $category): array;
 
     /**
      * Get details of a series from a category.
      *
      * @param string $category
-     * @param string $series
+     * @param string $slug
      *
      * @throws \Exception
      *
-     * @return SeriesModel
+     * @return Series
      */
-    public function get($category, $series);
+    public function get(string $category, string $slug): Series;
 
     /**
      * Update a series.
      *
      * @param string $category
-     * @param string $series
+     * @param string $slug
      * @param string $title
-     * @param string $tvDbId
+     * @param string $mediaApiId
      * @param string $language
      *
      * @throws \Exception
      *
-     * @return SeriesModel
+     * @return Series
      */
-    public function update($category, $series, $title, $tvDbId, $language);
+    public function update(string $category, string $slug, string $title, string $mediaApiId, string $language): Series;
 
     /**
      * Get the seasons of a series.
      *
      * @param string $category
-     * @param string $series
+     * @param string $slug
      *
      * @throws \Exception
      *
-     * @return SeasonModel[]
+     * @return Season[]
      */
-    public function getSeasons($category, $series);
+    public function getSeasons(string $category, string $slug): array;
 
     /**
      * Get the season details of a series.
      *
      * @param string $category
-     * @param string $series
-     * @param string $season
+     * @param string $slug
+     * @param int    $season
      *
      * @throws \Exception
      *
-     * @return SeasonModel
+     * @return Season
      */
-    public function getSeason($category, $series, $season);
+    public function getSeason(string $category, string $slug, int $season): Season;
 
     /**
      * Get the episodes of a season.
      *
      * @param string $category
-     * @param string $series
-     * @param string $season
+     * @param string $slug
+     * @param int    $season
      *
      * @throws \Exception
      *
-     * @return EpisodeModel[]
+     * @return Episode[]
      */
-    public function getEpisodes($category, $series, $season);
+    public function getEpisodes(string $category, string $slug, int $season): array;
 
     /**
      * Get the details of an episode.
      *
      * @param string $category
-     * @param string $series
-     * @param string $season
-     * @param string $episode
+     * @param string $slug
+     * @param int    $season
+     * @param int    $episode
      *
      * @throws \Exception
      *
-     * @return EpisodeModel
+     * @return Episode
      */
-    public function getEpisode($category, $series, $season, $episode);
+    public function getEpisode(string $category, string $slug, int $season, int $episode): Episode;
+
+    /**
+     * Get the details of an episode.
+     *
+     * @param string $category
+     * @param string $slug
+     * @param int    $season
+     * @param int    $episode
+     *
+     * @throws \Exception
+     *
+     * @return string|null
+     */
+    public function getEpisodeFile(string $category, string $slug, int $season, int $episode): ?string;
 
     /**
      * Update data.
      *
      * @throws \Exception
      *
-     * @return MaintenanceModel[]
+     * @return Maintenance[]
      */
-    public function updateData();
+    public function updateData(): array;
+
+    /**
+     * Get series image.
+     *
+     * @param string $category
+     * @param string $slug
+     * @param string $type
+     *
+     * @throws \Exception
+     *
+     * @return string
+     */
+    public function getImage(string $category, string $slug, string $type): string;
 }

@@ -2,14 +2,17 @@
 
 namespace TinyMediaCenter\API\Service\Api\Series;
 
-use TinyMediaCenter\API\Exception\ScrapeException;
+use TinyMediaCenter\API\Exception\MediaApiClientException;
+use TinyMediaCenter\API\Model\Api\Series\Season;
+use TinyMediaCenter\API\Model\Api\Series\TheTvDbModel;
+use TinyMediaCenter\API\Model\SeriesInterface;
 use TinyMediaCenter\API\Service\Api\AbstractMediaApiClient;
 use TinyMediaCenter\API\Service\Api\SeriesApiClientInterface;
 
 /**
  * Class TheTvDbApi
  */
-class TheTvDbApiClientClient extends AbstractMediaApiClient implements SeriesApiClientInterface
+class TheTvDbApiClient extends AbstractMediaApiClient implements SeriesApiClientInterface
 {
     /**
      * @var string
@@ -36,12 +39,12 @@ class TheTvDbApiClientClient extends AbstractMediaApiClient implements SeriesApi
     /**
      * {@inheritDoc}
      */
-    public function getSeriesId($name)
+    public function getSeriesId(string $name): string
     {
         $url = "GetSeries.php?language=de&seriesname=".$name;
         $raw = $this->curlDownload($url);
         if (strlen($raw) === 0) {
-            throw new ScrapeException("Failed to retrieve series id: Web API returned no data.");
+            throw new MediaApiClientException("Failed to retrieve series id: Web API returned no data.");
         }
         try {
             $xml = new \SimpleXMLElement($raw);
@@ -49,29 +52,34 @@ class TheTvDbApiClientClient extends AbstractMediaApiClient implements SeriesApi
                 $id = $xml->Series[0]->id;
 
                 return (string) $id;
+            } else {
+                $id = $xml->Series->id;
+
+                return (string) $id;
             }
         } catch (\Exception $e) {
-            throw new ScrapeException("Failed to retrieve series id: ".$e->getMessage());
+            throw new MediaApiClientException("Failed to retrieve series id: ".$e->getMessage());
         }
-        throw new ScrapeException("Failed to retrieve series id");
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getSeriesInfoById($id, $orderingScheme, $lang = 'de')
+    public function getSeriesInfoById(string $id, string $orderingScheme, ?string $lang = 'de'): SeriesInterface
     {
         $url = $this->apiKey."/series/".$id."/all/".$lang.".xml";
         $raw = $this->curlDownload($url);
 
         try {
             if (strlen($raw) === 0) {
-                throw new ScrapeException("Failed to retrieve series info for id ".$id.": Web API returned no data.");
+                throw new MediaApiClientException("Failed to retrieve series info for id ".$id.": Web API returned no data.");
             }
 
             $xml = new \SimpleXMLElement($raw);
             $rawEpisodes = $xml->Episode;
-            $seasons = [];
+
+            $series = new TheTvDbModel();
+//            $seasons = [];
             $seasonNumber = 0;
             $episodeNumber = 0;
 
@@ -79,6 +87,7 @@ class TheTvDbApiClientClient extends AbstractMediaApiClient implements SeriesApi
                 if ($orderingScheme === "DVD") {
                     $seasonNumber = (int) (strlen($re->DVD_season) > 0 ? $re->DVD_season : $re->SeasonNumber);
                 }
+
                 if ($orderingScheme === "Aired") {
                     $seasonNumber = (int) $re->SeasonNumber;
                 }
@@ -86,40 +95,53 @@ class TheTvDbApiClientClient extends AbstractMediaApiClient implements SeriesApi
                 if ($seasonNumber === 0) {//skip specials
                     continue;
                 }
-                if (!isset($seasons[$seasonNumber])) {
-                    $seasons[$seasonNumber] = array();
+
+                $season = $series->getSeason($seasonNumber);
+
+                if ($season === null) {
+                    $season = new Season($seasonNumber);
+                    $series->addSeason($season);
                 }
+
+//                if (!isset($seasons[$seasonNumber])) {
+//                    $seasons[$seasonNumber] = array();
+//                }
                 if ($orderingScheme === "DVD") {
                     $episodeNumber = (int) (strlen($re->DVD_episodenumber) > 0 ? $re->DVD_episodenumber : $re->EpisodeNumber);
                 }
+
                 if ($orderingScheme === "Aired") {
                     $episodeNumber = (int) $re->EpisodeNumber;
                 }
-                $seasons[$seasonNumber][$episodeNumber] = ["title" => (string) $re->EpisodeName, "description" => (string) $re->Overview];
+
+//                $seasons[$seasonNumber][$episodeNumber] = ["title" => (string) $re->EpisodeName, "description" => (string) $re->Overview];
+
+                $season->addEpisode(new Season\Episode($episodeNumber, (string) $re->EpisodeName, (string) $re->Overview));
             }
 
-            ksort($seasons);
+//            ksort($seasons);
+//
+//            foreach ($seasons as &$season) {
+//                ksort($season);
+//            }
 
-            foreach ($seasons as &$season) {
-                ksort($season);
+            if (empty($series->getSeasons())) {
+                throw new MediaApiClientException('Scraping failed (check ID): No data');
             }
 
-            if (empty($seasons)) {
-                throw new ScrapeException('Scraping failed (check ID): No data');
-            }
-
-            return $seasons;
+            return $series;
         } catch (\Exception $e) {
-            throw new ScrapeException("Failed to retrieve series info for id ".$id);
+            throw new MediaApiClientException("Failed to retrieve series info for id ".$id);
         }
     }
 
     /**
      * {@inheritDoc}
      */
-    public function downloadBackgroundImage($seriesId, $path)
+    public function downloadBackgroundImage(string $seriesId): string
     {
         $url = $this->imageBaseUrl.$seriesId."-1.jpg";
-        $this->downloadImage($url, $path);
+
+        return $this->downloadImage($url);
     }
 }

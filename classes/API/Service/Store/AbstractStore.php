@@ -2,7 +2,7 @@
 
 namespace TinyMediaCenter\API\Service\Store;
 
-use TinyMediaCenter\API\Model\DBModel;
+use TinyMediaCenter\API\Model\Database;
 
 /**
  * Class AbstractStore
@@ -10,7 +10,7 @@ use TinyMediaCenter\API\Model\DBModel;
 abstract class AbstractStore implements StoreInterface
 {
     /**
-     * @var DBModel
+     * @var Database
      */
     private $dbModel;
 
@@ -22,21 +22,21 @@ abstract class AbstractStore implements StoreInterface
     /**
      * Store constructor.
      *
-     * @param DBModel $dbModel
-     * @param array   $tables
+     * @param Database $dbModel
+     * @param array    $tables
      */
-    public function __construct(DBModel $dbModel, $tables)
+    public function __construct(Database $dbModel, $tables)
     {
         $this->dbModel = $dbModel;
         $this->tables = $tables;
     }
 
     /**
-     * @param DBModel $dbModel
+     * @param Database $dbModel
      *
      * @return bool
      */
-    public function checkSetup(DBModel $dbModel = null)
+    public function checkSetup(Database $dbModel = null)
     {
         $db = $this->connect($dbModel);
         $result = true;
@@ -69,11 +69,11 @@ abstract class AbstractStore implements StoreInterface
     }
 
     /**
-     * @param DBModel $dbModel
+     * @param Database $dbModel
      *
      * @return \PDO
      */
-    protected function connect(DBModel $dbModel = null)
+    protected function connect(Database $dbModel = null)
     {
         if (null === $dbModel) {
             $dbModel = $this->dbModel;

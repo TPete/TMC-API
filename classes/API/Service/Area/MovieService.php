@@ -2,18 +2,19 @@
 
 namespace TinyMediaCenter\API\Service\Area;
 
-use TinyMediaCenter\API\Model\MovieModelInterface;
-use TinyMediaCenter\API\Model\MediaFileInfoModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\SimpleMovieModel;
-use TinyMediaCenter\API\Model\Resource\Area\CategoryModel;
-use TinyMediaCenter\API\Model\Resource\AreaModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\CollectionModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\GenresModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\MaintenanceModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\MovieModel;
-use TinyMediaCenter\API\Model\Store\MovieModel as StoreMovieModel;
+use Slim\Interfaces\RouterInterface;
+use TinyMediaCenter\API\Model\MovieInterface;
+use TinyMediaCenter\API\Model\MediaFileInfo;
+use TinyMediaCenter\API\Model\Resource\Area\Category\SimpleMovie;
+use TinyMediaCenter\API\Model\Resource\Area\Category;
+use TinyMediaCenter\API\Model\Resource\Area;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\Collection;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\Genres;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\Maintenance;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movie;
+use TinyMediaCenter\API\Model\Store\Movie as StoreMovieModel;
 use TinyMediaCenter\API\Service\Api\MoviesApiClientInterface;
-use TinyMediaCenter\API\Service\Store\MovieStoreDB;
+use TinyMediaCenter\API\Service\Store\MovieStoreInterface;
 
 /**
  * Class MovieService
@@ -34,7 +35,7 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
     const AREA = 'MOVIES_AREA';
 
     /**
-     * @var MovieStoreDB //TODO use interface, once it is complete
+     * @var MovieStoreInterface
      */
     private $movieStore;
 
@@ -44,14 +45,14 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
     private $moviesApiClient;
 
     /**
-     * @var string
+     * @var RouterInterface
      */
-    private $path;
+    private $router;
 
     /**
      * @var string
      */
-    private $alias;
+    private $path;
 
     /**
      * @var bool
@@ -66,17 +67,17 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
     /**
      * MovieController constructor.
      *
-     * @param MovieStoreDB             $movieStore
+     * @param MovieStoreInterface      $movieStore
      * @param MoviesApiClientInterface $moviesApiClient
+     * @param RouterInterface          $router
      * @param string                   $path
-     * @param string                   $alias
      */
-    public function __construct(MovieStoreDB $movieStore, MoviesApiClientInterface $moviesApiClient, $path, $alias)
+    public function __construct(MovieStoreInterface $movieStore, MoviesApiClientInterface $moviesApiClient, RouterInterface $router, $path)
     {
         $this->movieStore = $movieStore;
         $this->moviesApiClient = $moviesApiClient;
+        $this->router = $router;
         $this->path = $path;
-        $this->alias = $alias;
     }
 
     /**
@@ -84,7 +85,7 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
      */
     public function getMetaInfo()
     {
-        return new AreaModel(
+        return new Area(
             'movie',
             'Movies area overview'
         );
@@ -106,7 +107,7 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
         $categories = [];
 
         foreach ($this->getCategoryNames() as $category) {
-            $categories[] = new CategoryModel($category);
+            $categories[] = new Category($category);
         }
 
         return $categories;
@@ -174,7 +175,7 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
     {
         $apiModel = $this->moviesApiClient->getMovieInfo($remoteId);
 
-        return new SimpleMovieModel(
+        return new SimpleMovie(
             $apiModel->getId(),
             $apiModel->getTitle(),
             $apiModel->getOriginalTitle(),
@@ -191,12 +192,13 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
     /**
      * {@inheritDoc}
      */
-    public function update($category, $localId, $remoteId, $filename)
+    public function update($category, $localId, $remoteId)
     {
         $movie = $this->moviesApiClient->getMovieInfo($remoteId);
-        $fileInfo = new MediaFileInfoModel($this->getFilePath($category, $filename));
+        $model = $this->movieStore->getMovieById($category, $localId);
+        $fileInfo = new MediaFileInfo($this->getFilePath($category, $model->getFilename()));
 
-        return $this->updateMovie($category, $movie, $fileInfo, $filename, $localId);
+        return $this->updateMovie($category, $movie, $fileInfo, $model->getFilename(), $localId);
     }
 
     /**
@@ -207,7 +209,7 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
         $models = [];
 
         foreach ($this->movieStore->getGenres($category, $filter) as $genre) {
-            $models[] = new GenresModel($genre);
+            $models[] = new Genres($genre);
         }
 
         return $models;
@@ -221,7 +223,7 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
         $models = [];
 
         foreach ($this->movieStore->getCollections($category) as $collection) {
-            $models[] = new CollectionModel($collection['id'], $collection['name'], $collection['overview'], []);
+            $models[] = new Collection($collection['id'], $collection['name'], $collection['overview'], []);
         }
 
         return $models;
@@ -241,10 +243,42 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
         return $protocol;
     }
 
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getImage($category, $id, $type)
+    {
+        $movie = $this->movieStore->getMovieById($category, $id);
+        $path = $this->getCategoryPath($category);
+
+        if ($type === 'big') {
+            $poster = sprintf('%s%s/%s_big.jpg', $path, self::PICTURES_FOLDER, $movie->getApiId());
+        } else {
+            $poster = sprintf('%s%s/%s_333x500.jpg', $path, self::PICTURES_FOLDER, $movie->getApiId());
+        }
+
+        return $poster;
+    }
+
+    /**
+     * @param string $category
+     * @param int    $id
+     *
+     * @return string
+     */
+    public function getMovieFile($category, $id)
+    {
+        $movie = $this->movieStore->getMovieById($category, $id);
+        $path = $this->getCategoryPath($category);
+
+        return $path.$movie->getFilename();
+    }
+
     /**
      * @param string $category
      *
-     * @return MaintenanceModel
+     * @return Maintenance
      */
     private function maintenance($category)
     {
@@ -308,7 +342,7 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
             'success' => true,
         ];
 
-        return new MaintenanceModel($category, $steps);
+        return new Maintenance($category, $steps);
     }
 
     /**
@@ -330,8 +364,6 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
     }
 
     /**
-     * TODO sort all this categories, aliases and paths
-     *
      * @param string $category
      *
      * @return string
@@ -357,33 +389,29 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
      *
      * @return string
      */
-    private function getCategoryAlias($category)
-    {
-        return $this->getCategory($this->alias, $category);
-    }
-
-    /**
-     * @param string $category
-     *
-     * @return string
-     */
     private function getPicturePath($category)
     {
-        return sprintf('%s%s/', $this->getCategoryPath($category), self::PICTURES_FOLDER);
+        $path = sprintf('%s%s/', $this->getCategoryPath($category), self::PICTURES_FOLDER);
+
+        if (!file_exists($path)) {
+            mkdir($path);
+        }
+
+        return $path;
     }
 
     /**
-     * @param string              $category
-     * @param MovieModelInterface $movie
-     * @param MediaFileInfoModel  $fileInfoModel
-     * @param string              $filename
-     * @param string              $localId
+     * @param string         $category
+     * @param MovieInterface $movie
+     * @param MediaFileInfo  $fileInfoModel
+     * @param string         $filename
+     * @param string         $localId
      *
      * @throws \Exception
      *
-     * @return MovieModel
+     * @return Movie
      */
-    private function updateMovie($category, MovieModelInterface $movie, MediaFileInfoModel $fileInfoModel, $filename, $localId = "")
+    private function updateMovie($category, MovieInterface $movie, MediaFileInfo $fileInfoModel, $filename, $localId = ""): Movie
     {
         $picturePath = $this->getPicturePath($category);
         $this->downloadMoviePicture($picturePath, $movie->getId());
@@ -403,13 +431,19 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
      *
      * @return string
      */
-    private function searchMovie($category, $title, $filename)
+    private function searchMovie($category, $title, $filename): string
     {
         try {
             $movie = $this->moviesApiClient->searchMovie($title);
-            $fileInfo = new MediaFileInfoModel($this->getFilePath($category, $filename));
 
-            return $this->updateMovie($category, $movie, $fileInfo, $filename);
+            if ($movie === null) {
+                throw new \Exception(sprintf('"%s" not found', $title)); //TODO not really an exception
+            }
+
+            $fileInfo = new MediaFileInfo($this->getFilePath($category, $filename));
+            $this->updateMovie($category, $movie, $fileInfo, $filename);
+
+            return "Ok";
         } catch (\Exception $e) {
             return $e->getMessage();
         }
@@ -620,14 +654,22 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
         $protocol = [];
 
         foreach ($missing as $filename) {
-            $title = $this->getMovieTitle($filename);
-            $result = $this->searchMovie($category, $title, $filename);
-            $protocol = [
-                'object' => $filename,
-                'title' => $title,
-                'success' => substr($result, 0, 2) === 'OK', //TODO Do not return "Ok:Movie Title" from searchMovie
-                'result' => $result,
-            ];
+            try {
+                $title = $this->getMovieTitle($filename);
+                $result = $this->searchMovie($category, $title, $filename);
+                $protocol[] = [
+                    'object' => $filename,
+                    'title' => $title,
+                    'success' => substr($result, 0, 2) === 'OK', //TODO Do not return "Ok:Movie Title" from searchMovie
+                    'result' => $result,
+                ];
+            } catch (\Exception $e) {
+                $protocol[] = [
+                    'object' => $filename,
+                    'success' => false,
+                    'result' => $e->getMessage(),
+                ];
+            }
         }
 
         return $protocol;
@@ -712,20 +754,16 @@ class MovieService extends AbstractAreaService implements MovieServiceInterface
      * @param StoreMovieModel $model
      * @param string          $category
      *
-     * @return MovieModel
+     * @return Movie
      */
     private function convertModels(StoreMovieModel $model, $category)
     {
-        $alias = $this->getCategoryAlias($category);
+        $poster = $this->router->pathFor('app.movies.movie_images', ['category' => $category, 'id' => $model->getId(), 'type' => 'thumbnail']);
+        $posterBig = $this->router->pathFor('app.movies.movie_images', ['category' => $category, 'id' => $model->getId(), 'type' => 'big']);
+        $filename = $this->router->pathFor('app.movies.movie_file', ['category' => $category, 'id' => $model->getId()]);
 
-//        $poster = $alias.MovieService::PICTURES_FOLDER."/".$model->getApiId()."_333x500.jpg";
-        $poster = sprintf('%s%s/%s_333x500.jpg', $alias, self::PICTURES_FOLDER, $model->getApiId());
-//        $posterBig = $alias.MovieService::PICTURES_FOLDER."/".$model->getApiId()."_big.jpg";
-        $posterBig = sprintf('%s%s/%s_big.jpg', $alias, self::PICTURES_FOLDER, $model->getApiId());
-        $filename = $alias.$model->getFilename();
-
-        return new MovieModel(
-            $model->getApiId(),
+        return new Movie(
+            $model->getId(),
             $model->getTitle(),
             $model->getOriginalTitle(),
             $model->getOverview(),

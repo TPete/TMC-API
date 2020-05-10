@@ -5,8 +5,8 @@ namespace TinyMediaCenter\API\Controller;
 use Slim\Http\Request;
 use Slim\Http\Response;
 use TinyMediaCenter\API;
-use TinyMediaCenter\API\Model\ConfigModel;
-use TinyMediaCenter\API\Model\DBModel;
+use TinyMediaCenter\API\Model\Config;
+use TinyMediaCenter\API\Model\Database;
 use TinyMediaCenter\API\Service\SetupService;
 
 /**
@@ -20,7 +20,6 @@ class SetupController extends AbstractController
      * Setup type: database.
      */
     const TYPE_DATABASE = 'db';
-
 
     /**
      * @var SetupService
@@ -49,7 +48,7 @@ class SetupController extends AbstractController
             $body = $request->getParsedBody();
 
             try {
-                $config = new ConfigModel($body);
+                $config = new Config($body);
                 $config->save();
 
                 return $response->withStatus(202);
@@ -58,7 +57,7 @@ class SetupController extends AbstractController
             }
         } else {
             try {
-                $config = ConfigModel::init();
+                $config = Config::init();
 
                 return $response->withJson($config->toArray(true));
             } catch (API\Exception\InvalidDataException $e) {
@@ -124,7 +123,7 @@ class SetupController extends AbstractController
     private function checkDatabase(Request $request)
     {
         $query = $request->getQueryParams();
-        $dbModel = new DBModel($query['host'], $query['name'], $query['user'], $query['password']);
+        $dbModel = new Database($query['host'], $query['name'], $query['user'], $query['password']);
 
         return $this->setupService->checkDatabase($dbModel);
     }
@@ -140,10 +139,8 @@ class SetupController extends AbstractController
     private function checkCategory(Request $request, $category)
     {
         $pathKey = sprintf('path%s', ucfirst($category));
-        $aliasKey = sprintf('alias%s', ucfirst($category));
         $path = $request->getQueryParam($pathKey);
-        $alias = $request->getQueryParam($aliasKey);
 
-        return $this->setupService->checkArea($category, $path, $alias);
+        return $this->setupService->checkArea($category, $path);
     }
 }

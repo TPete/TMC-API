@@ -2,7 +2,7 @@
 
 namespace TinyMediaCenter\API\Service\Area;
 
-use TinyMediaCenter\API\Model\Resource\Area\CategoryModel;
+use TinyMediaCenter\API\Model\Resource\Area\Category;
 
 /**
  * Service for an area.
@@ -17,7 +17,7 @@ interface AreaServiceInterface
     /**
      * Get all categories of the area.
      *
-     * @return CategoryModel[]
+     * @return Category[]
      */
     public function getCategories();
 }

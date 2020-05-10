@@ -4,7 +4,7 @@ namespace TinyMediaCenter\API\Controller;
 
 use Slim\Http\Response;
 use TinyMediaCenter\API\Exception\NotFoundException;
-use TinyMediaCenter\API\Model\ResourceModelInterface;
+use TinyMediaCenter\API\Model\ResourceInterface;
 
 /**
  * Class AbstractController
@@ -32,8 +32,8 @@ abstract class AbstractController
     }
 
     /**
-     * @param Response                                        $response
-     * @param ResourceModelInterface|ResourceModelInterface[] $resourceModels
+     * @param Response                              $response
+     * @param ResourceInterface|ResourceInterface[] $resourceModels
      *
      * @return Response
      */
@@ -46,7 +46,7 @@ abstract class AbstractController
             $returnList = false;
         }
 
-        $resources = array_map(function (ResourceModelInterface $resourceModel) {
+        $resources = array_map(function (ResourceInterface $resourceModel) {
             return $resourceModel->toArray();
         }, $resourceModels);
 
@@ -55,36 +55,5 @@ abstract class AbstractController
         }
 
         return $response->withJson($resources);
-    }
-
-    /**
-     * @param Response $response
-     * @param callable $callable
-     *
-     * @return Response
-     */
-    protected function returnResourcesCallable(Response $response, callable $callable)
-    {
-        try {
-            $resourceModels = $callable();
-            $returnList = true;
-
-            if (!is_array($resourceModels)) {
-                $resourceModels = [$resourceModels];
-                $returnList = false;
-            }
-
-            $resources = array_map(function (ResourceModelInterface $resourceModel) {
-                return $resourceModel->toArray();
-            }, $resourceModels);
-
-            if (!$returnList) {
-                $resources = $resources[0];
-            }
-
-            return $response->withJson($resources);
-        } catch (\Exception $exception) {
-            return $this->handleException($exception, $response);
-        }
     }
 }

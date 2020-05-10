@@ -50,8 +50,8 @@
 
 ### ShowStoreDB
 
-* Rename to SeriesStore ?
-* use Model for series data
+* **Ok** Rename to SeriesStore ?
+* **Ok** use Model for series data
 * remove unused functions
 * add interface
 

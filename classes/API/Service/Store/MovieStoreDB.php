@@ -2,10 +2,10 @@
 
 namespace TinyMediaCenter\API\Service\Store;
 
-use TinyMediaCenter\API\Model\DBModel;
-use TinyMediaCenter\API\Model\MediaFileInfoModel;
-use TinyMediaCenter\API\Model\MovieModelInterface;
-use TinyMediaCenter\API\Model\Store\MovieModel;
+use TinyMediaCenter\API\Model\Database;
+use TinyMediaCenter\API\Model\MediaFileInfo;
+use TinyMediaCenter\API\Model\MovieInterface;
+use TinyMediaCenter\API\Model\Store\Movie;
 
 /**
  * Class MovieStoreDB
@@ -15,11 +15,11 @@ class MovieStoreDB extends AbstractStore implements MovieStoreInterface
     /**
      * MovieStoreDB constructor.
      *
-     * @param DBModel $dbModel
+     * @param Database $dbModel
      */
-    public function __construct(DBModel $dbModel)
+    public function __construct(Database $dbModel)
     {
-        $tables = array("movies", "lists", "list_parts", "collections", "collection_parts");
+        $tables = array("movies", "collections", "collection_parts");
         parent::__construct($dbModel, $tables);
     }
 
@@ -180,7 +180,7 @@ class MovieStoreDB extends AbstractStore implements MovieStoreInterface
     /**
      * {@inheritDoc}
      */
-    public function updateMovie($category, MovieModelInterface $movie, MediaFileInfoModel $mediaFileInfoModel, $dir, $filename, $id = "")
+    public function updateMovie($category, MovieInterface $movie, MediaFileInfo $mediaFileInfoModel, $dir, $filename, $id = "")
     {
         $db = $this->connect();
 
@@ -387,7 +387,7 @@ class MovieStoreDB extends AbstractStore implements MovieStoreInterface
      */
     public function checkDuplicates($category)
     {
-        //TODO maybe use api id?
+        //TODO use api id!
         $db = $this->connect();
         $sql = "Select Title
 				From movies
@@ -574,11 +574,11 @@ class MovieStoreDB extends AbstractStore implements MovieStoreInterface
     /**
      * @param array $movie
      *
-     * @return MovieModel
+     * @return Movie
      */
     private function createModel(array $movie)
     {
-        return new MovieModel(
+        return new Movie(
             $movie['id'],
             $movie['title'],
             $movie['original_title'],

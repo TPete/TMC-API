@@ -2,8 +2,8 @@
 
 namespace TinyMediaCenter\API\Service\Api;
 
-use TinyMediaCenter\API\Model\CollectionModelInterface;
-use TinyMediaCenter\API\Model\MovieModelInterface;
+use TinyMediaCenter\API\Model\CollectionInterface;
+use TinyMediaCenter\API\Model\MovieInterface;
 
 /**
  * Interface MovieApiInterface
@@ -17,7 +17,7 @@ interface MoviesApiClientInterface
      *
      * @throws \Exception
      *
-     * @return MovieModelInterface
+     * @return MovieInterface
      */
     public function getMovieInfo($id);
 
@@ -39,7 +39,7 @@ interface MoviesApiClientInterface
      *
      * @throws \Exception
      *
-     * @return MovieModelInterface|null
+     * @return MovieInterface|null
      */
     public function searchMovie($title);
 
@@ -50,7 +50,7 @@ interface MoviesApiClientInterface
      *
      * @throws \Exception
      *
-     * @return CollectionModelInterface
+     * @return CollectionInterface
      */
     public function getCollectionInfo($id);
 }

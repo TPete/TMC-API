@@ -2,8 +2,10 @@
 
 namespace TinyMediaCenter\API\Service;
 
-use TinyMediaCenter\API\Model\Resource\Area\CategoryModel;
-use TinyMediaCenter\API\Model\DBModel;
+use TinyMediaCenter\API\Model\Resource\Area\Category;
+use TinyMediaCenter\API\Model\Database;
+use TinyMediaCenter\API\Service\Area\AreaServiceInterface;
+use TinyMediaCenter\API\Service\Store\StoreInterface;
 
 /**
  * Class SetupService
@@ -39,11 +41,11 @@ class SetupService
     /**
      * Verifies the database is set up correctly.
      *
-     * @param DBModel $dbModel
+     * @param Database $dbModel
      *
      * @return array
      */
-    public function checkDatabase(DBModel $dbModel)
+    public function checkDatabase(Database $dbModel)
     {
         try {
             $res = ['dbAccess' => 'Ok'];
@@ -93,19 +95,18 @@ class SetupService
      *
      * @param string $area
      * @param string $path
-     * @param string $alias
      *
      * @throws \Exception
      *
      * @return array
      */
-    public function checkArea($area, $path, $alias)
+    public function checkArea($area, $path)
     {
         $res = [];
 
-        if ($this->isValidArea($area) && $this->isValidPath($path) && $this->isValidAlias($alias)) {
+        if ($this->isValidArea($area) && $this->isValidPath($path)) {
             $service = $this->getServiceByArea($area);
-            $categories = array_map(function (CategoryModel $model) {
+            $categories = array_map(function (Category $model) {
                 return $model->getId();
             }, $service->getCategories());
 
@@ -136,29 +137,5 @@ class SetupService
     private function isValidPath($path)
     {
         return is_dir($path) && is_writable($path);
-    }
-
-    /**
-     * @param string $url
-     *
-     * @return bool
-     */
-    private function isValidAlias($url)
-    {
-        if (!function_exists('curl_init')) {
-            die('Sorry cURL is not installed!');
-        }
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_HEADER, true);
-        curl_setopt($ch, CURLOPT_NOBODY, true);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        return ($httpCode < 400);
     }
 }

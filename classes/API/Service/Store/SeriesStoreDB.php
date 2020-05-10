@@ -3,8 +3,9 @@
 namespace TinyMediaCenter\API\Service\Store;
 
 use TinyMediaCenter\API\Exception\NotFoundException;
-use TinyMediaCenter\API\Model\DBModel;
-use TinyMediaCenter\API\Model\Store\SeriesModel;
+use TinyMediaCenter\API\Model\Database;
+use TinyMediaCenter\API\Model\SeriesInterface;
+use TinyMediaCenter\API\Model\Store\Series;
 
 /**
  * Store for series.
@@ -16,9 +17,9 @@ class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
     /**
      * SeriesStoreDB constructor.
      *
-     * @param DBModel $dbModel
+     * @param Database $dbModel
      */
-    public function __construct(DBModel $dbModel)
+    public function __construct(Database $dbModel)
     {
         $tables = array("shows", "show_episodes");
         parent::__construct($dbModel, $tables);
@@ -27,7 +28,7 @@ class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
     /**
      * {@inheritDoc}
      */
-    public function getSeries($category)
+    public function getSeries(string $category): array
     {
         $db = $this->connect();
         $sql = "Select id, title, folder, tvdb_id, ordering_scheme, lang
@@ -37,23 +38,23 @@ class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->execute();
-        $shows = [];
+        $series = [];
 
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $shows[] = $this->createModel($row);
+            $series[] = $this->createModel($row);
         }
 
-        if (empty($shows)) {
+        if (empty($series)) {
             throw new NotFoundException(sprintf('Category "%s" not found', $category));
         }
 
-        return $shows;
+        return $series;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getSeriesDetails($category, $folder)
+    public function getSeriesDetails(string $category, string $folder): Series
     {
         $db = $this->connect();
         $sql = "Select id, title, folder, tvdb_id, ordering_scheme, lang
@@ -76,26 +77,57 @@ class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
     /**
      * {@inheritDoc}
      */
-    public function getEpisodes($category, $folder)
+    public function getSeasonCount(string $category, string $folder): int
+    {
+        $db = $this->connect();
+        $sql = "Select max(ep.season_no)
+                From shows sh
+                Join show_episodes ep on sh.id = ep.show_id
+                Where sh.category = :category 
+				And sh.folder = :folder ";
+        $stmt = $db->prepare($sql);
+        $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
+        $stmt->bindValue(":folder", $folder, \PDO::PARAM_STR);
+        $stmt->execute();
+        $row = $stmt->fetch(\PDO::FETCH_NUM);
+
+        return (int) $row[0];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getEpisodes(string $category, string $folder, ?int $season = null): array
     {
         $db = $this->connect();
         $sql = "Select ep.season_no, ep.episode_no, ep.title, ep.id, ep.description
 				From shows sh
 				Join show_episodes ep on sh.id = ep.show_id
-				Where sh.category = :category and sh.folder = :folder 
-				Order by ep.season_no, ep.episode_no";
+				Where sh.category = :category 
+				And sh.folder = :folder ";
+
+        if ($season !== null) {
+            $sql .= " And ep.season_no = :season ";
+        }
+
+        $sql .= "Order by ep.season_no, ep.episode_no";
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->bindValue(":folder", $folder, \PDO::PARAM_STR);
+
+        if ($season !== null) {
+            $stmt->bindValue(":season", $season, \PDO::PARAM_INT);
+        }
+
         $stmt->execute();
         $episodes = [];
 
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $episodes[] = $row;
+            $episodes[] = new Series\Episode($row['episode_no'], $row['season_no'], $row['title'], $row['description']);
         }
 
         if (empty($episodes)) {
-            throw new NotFoundException(sprintf('Episodes for "%s/%s" not found', $category, $folder));
+            throw new NotFoundException(sprintf('Episodes for "%s/%s/%s" not found', $category, $folder, $season));
         }
 
         return $episodes;
@@ -104,7 +136,7 @@ class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
     /**
      * {@inheritDoc}
      */
-    public function updateDetails($category, $folder, $title, $tvdbId, $lang)
+    public function updateDetails(string $category, string $folder, string $title, int $mediaApiId, string $lang): int
     {
         $db = $this->connect();
         $sql = "Select TVDB_ID
@@ -123,19 +155,19 @@ class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
 				Where category = :category and folder = :folder";
         $stmt = $db->prepare($sql);
         $stmt->bindValue(":title", $title, \PDO::PARAM_STR);
-        $stmt->bindValue(":tvdb_id", $tvdbId, \PDO::PARAM_INT);
+        $stmt->bindValue(":tvdb_id", $mediaApiId, \PDO::PARAM_INT);
         $stmt->bindValue(":lang", $lang);
         $stmt->bindValue(":category", $category, \PDO::PARAM_STR);
         $stmt->bindValue(":folder", $folder, \PDO::PARAM_STR);
         $stmt->execute();
 
-        return $row["TVDB_ID"];
+        return $row["TVDB_ID"]; //TODO why?
     }
 
     /**
      * {@inheritDoc}
      */
-    public function createIfMissing($category, $folder, $title)
+    public function createIfMissing(string $category, string $folder, string $title): ?string
     {
         $db = $this->connect();
         $sql = "Select count(*) cnt
@@ -165,7 +197,7 @@ class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
     /**
      * {@inheritDoc}
      */
-    public function removeIfObsolete($category, $folders)
+    public function removeIfObsolete(string $category, array $folders): array
     {
         $db = $this->connect();
         $sql = "Select folder
@@ -180,23 +212,23 @@ class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
 				Where category = :category and folder = :folder";
         $stmtShows = $db->prepare($sqlShows);
         $stmtShows->bindValue(":category", $category, \PDO::PARAM_STR);
-        $protocol = [];
+        $removed = [];
 
         foreach ($dbFolders as $row) {
             if (!in_array($row["folder"], $folders)) {
                 $stmtShows->bindValue(":folder", $row["folder"], \PDO::PARAM_STR);
                 $stmtShows->execute();
-                $protocol[] = $row["folder"];
+                $removed[] = $row["folder"];
             }
         }
 
-        return $protocol;
+        return $removed;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function updateEpisodes($showId, $seasons)
+    public function updateEpisodes(int $showId, SeriesInterface $series)
     {
         $sqlDelete = "Delete
 					From show_episodes
@@ -208,30 +240,27 @@ class SeriesStoreDB extends AbstractStore implements SeriesStoreInterface
         $stmtDelete->bindValue(":showId", $showId);
         $stmtDelete->execute();
         $stmtInsert = $db->prepare($sqlInsert);
-        $seasonCnt = 1;
-        foreach ($seasons as $episodes) {
-            $episodeCnt = 1;
-            foreach ($episodes as $episode) {
+
+        foreach ($series->getSeasons() as $season) {
+            foreach ($season->getEpisodes() as $episode) {
                 $stmtInsert->bindValue(":showId", $showId, \PDO::PARAM_INT);
-                $stmtInsert->bindValue(":seasonNo", $seasonCnt, \PDO::PARAM_INT);
-                $stmtInsert->bindValue(":episodeNo", $episodeCnt, \PDO::PARAM_INT);
-                $stmtInsert->bindValue(":title", $episode["title"], \PDO::PARAM_STR);
-                $stmtInsert->bindValue(":description", $episode["description"], \PDO::PARAM_STR);
+                $stmtInsert->bindValue(":seasonNo", $season->getNumber(), \PDO::PARAM_INT);
+                $stmtInsert->bindValue(":episodeNo", $episode->getNumber(), \PDO::PARAM_INT);
+                $stmtInsert->bindValue(":title", $episode->getTitle(), \PDO::PARAM_STR);
+                $stmtInsert->bindValue(":description", $episode->getDescription(), \PDO::PARAM_STR);
                 $stmtInsert->execute();
-                $episodeCnt++;
             }
-            $seasonCnt++;
         }
     }
 
     /**
      * @param array $seriesData
      *
-     * @return SeriesModel
+     * @return Series
      */
     private function createModel(array $seriesData)
     {
-        return new SeriesModel(
+        return new Series(
             $seriesData['id'],
             $seriesData['title'],
             $seriesData['folder'],

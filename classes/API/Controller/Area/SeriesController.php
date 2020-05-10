@@ -4,6 +4,7 @@ namespace TinyMediaCenter\API\Controller\Area;
 
 use Slim\Http\Request;
 use Slim\Http\Response;
+use Slim\Http\Stream;
 use TinyMediaCenter\API\Controller\AbstractController;
 use TinyMediaCenter\API\Service\Area\SeriesServiceInterface;
 
@@ -33,7 +34,7 @@ class SeriesController extends AbstractController
      *
      * @return Response
      */
-    public function maintenanceAction(Request $request, Response $response)
+    public function maintenanceAction(Request $request, Response $response): Response
     {
         try {
             return $this->returnResources($response, $this->seriesService->updateData());
@@ -48,7 +49,7 @@ class SeriesController extends AbstractController
      *
      * @return Response
      */
-    public function indexAction(Request $request, Response $response)
+    public function indexAction(Request $request, Response $response): Response
     {
         try {
             return $this->returnResources($response, $this->seriesService->getMetaInfo());
@@ -63,7 +64,7 @@ class SeriesController extends AbstractController
      *
      * @return Response
      */
-    public function categoriesAction(Request $request, Response $response)
+    public function categoriesAction(Request $request, Response $response): Response
     {
         try {
             return $this->returnResources($response, $this->seriesService->getCategories());
@@ -79,7 +80,7 @@ class SeriesController extends AbstractController
      *
      * @return Response
      */
-    public function categoryAction(Request $request, Response $response, $category)
+    public function categoryAction(Request $request, Response $response, $category): Response
     {
         try {
             return $this->returnResources($response, $this->seriesService->getByCategory($category));
@@ -96,13 +97,22 @@ class SeriesController extends AbstractController
      *
      * @return Response
      */
-    public function detailsAction(Request $request, Response $response, $category, $series)
+    public function detailsAction(Request $request, Response $response, string $category, string $series): Response
     {
         try {
             if ($request->isGet()) {
-                //TODO add includes for seasons, episodes
+                $seriesDetails = $this->seriesService->get($category, $series);
+                //TODO move setting of includes to service/models
+                $seasons = $seriesDetails->getSeasons();
 
-                return $this->returnResources($response, $this->seriesService->get($category, $series));
+                foreach ($seasons as $season) {
+                    $episodes = $season->getEpisodes();
+                    $season->setIncludes($episodes);
+                }
+
+                $seriesDetails->setIncludes($seasons);
+
+                return $this->returnResources($response, $seriesDetails);
             } else {
                 $title = $request->getParsedBodyParam('title');
                 $tvDbId = (int) $request->getParsedBodyParam('tvdbId');
@@ -127,7 +137,7 @@ class SeriesController extends AbstractController
      *
      * @return Response
      */
-    public function seasonsIndexAction(Request $request, Response $response, $category, $series)
+    public function seasonsIndexAction(Request $request, Response $response, string $category, string $series): Response
     {
         try {
             return $this->returnResources($response, $this->seriesService->getSeasons($category, $series));
@@ -145,7 +155,7 @@ class SeriesController extends AbstractController
      *
      * @return Response
      */
-    public function seasonDetailsAction(Request $request, Response $response, $category, $series, $season)
+    public function seasonDetailsAction(Request $request, Response $response, string $category, string $series, string $season): Response
     {
         try {
             return $this->returnResources($response, $this->seriesService->getSeason($category, $series, $season));
@@ -163,7 +173,7 @@ class SeriesController extends AbstractController
      *
      * @return Response
      */
-    public function episodesIndexAction(Request $request, Response $response, $category, $series, $season)
+    public function episodesIndexAction(Request $request, Response $response, string $category, string $series, string $season): Response
     {
         try {
             return $this->returnResources($response, $this->seriesService->getEpisodes($category, $series, $season));
@@ -182,12 +192,99 @@ class SeriesController extends AbstractController
      *
      * @return Response
      */
-    public function episodeDetailsAction(Request $request, Response $response, $category, $series, $season, $episode)
+    public function episodeDetailsAction(Request $request, Response $response, string $category, string $series, string $season, string $episode): Response
     {
         try {
             return $this->returnResources($response, $this->seriesService->getEpisode($category, $series, $season, $episode));
         } catch (\Exception $e) {
             return $this->handleException($e, $response);
         }
+    }
+
+    /**
+     * @param Request  $request
+     * @param Response $response
+     * @param string   $category
+     * @param string   $slug
+     * @param string   $type
+     *
+     * @return Response
+     */
+    public function imageAction(Request $request, Response $response, string $category, string $slug, string $type): Response
+    {
+        try {
+            $category = $this->validateCategory($category);
+            $type = $this->validateImageType($type);
+            $image = $this->seriesService->getImage($category, $slug, $type);
+            $response->write(file_get_contents($image));
+
+            return $response
+                ->withHeader('Content-Type', 'image/jpeg')
+                ->withHeader('Cache-Control', 'public, max-age=31536000');
+        } catch (\Exception $e) {
+            return $this->handleException($e, $response);
+        }
+    }
+
+    /**
+     * @param Request  $request
+     * @param Response $response
+     * @param string   $category
+     * @param string   $series
+     * @param string   $season
+     * @param string   $episode
+     *
+     * @return Response
+     */
+    public function episodeFileAction(Request $request, Response $response, string $category, string $series, string $season, string $episode)
+    {
+        try {
+            $file = $this->seriesService->getEpisodeFile($category, $series, $season, $episode);
+
+            return $response
+                ->withAddedHeader('Content-Type', 'video/x-msvideo')
+                ->withAddedHeader('Content-Length', filesize($file))
+                ->withAddedHeader('Content-Disposition', sprintf('attachment; filename= "%s"', basename($file)))
+                ->withBody(new Stream(fopen($file, 'rb')));
+        } catch (\Exception $e) {
+            return $this->handleException($e, $response);
+        }
+    }
+
+    /**
+     * @param string $category
+     *
+     * @return string
+     */
+    private function validateCategory(string $category): string
+    {
+        //TODO add some validation
+        return $category;
+    }
+
+    /**
+     * @param string $type
+     *
+     * @throws \Exception
+     *
+     * @return string
+     */
+    private function validateImageType(string $type): string
+    {
+        $types = [
+            'bg',
+            'thumb',
+            'thumbnail',
+        ];
+
+        if (!in_array($type, $types)) {
+            throw new \Exception(sprintf('Invalid image type: %s', $type));
+        }
+
+        if ($type === 'thumbnail') {
+            $type = 'thumb';
+        }
+
+        return $type;
     }
 }

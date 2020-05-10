@@ -2,12 +2,12 @@
 
 namespace TinyMediaCenter\API\Model\Api\Movies;
 
-use TinyMediaCenter\API\Model\AbstractMovieModel;
+use TinyMediaCenter\API\Model\AbstractMovie;
 
 /**
  * Class TheMovieDbModel
  */
-class TheMovieDbModel extends AbstractMovieModel
+class TheMovieDbModel extends AbstractMovie
 {
     const KEY_ID = 'id';
 

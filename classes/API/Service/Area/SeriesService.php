@@ -2,20 +2,24 @@
 
 namespace TinyMediaCenter\API\Service\Area;
 
+use Slim\Interfaces\RouterInterface;
 use TinyMediaCenter\API\Exception\NotFoundException;
-use TinyMediaCenter\API\Exception\ScrapeException;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Series\MaintenanceModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Season\EpisodeModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Series\SeasonModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\SeriesModel;
-use TinyMediaCenter\API\Model\Resource\Area\CategoryModel;
-use TinyMediaCenter\API\Model\Resource\AreaModel;
-use TinyMediaCenter\API\Model\Store\SeriesModel as StoreSeriesModel;
+use TinyMediaCenter\API\Exception\MediaApiClientException;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Maintenance;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Season\Episode;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series\Season;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Series;
+use TinyMediaCenter\API\Model\Resource\Area\Category;
+use TinyMediaCenter\API\Model\Resource\Area;
+use TinyMediaCenter\API\Model\Store\Series as StoreSeriesModel;
 use TinyMediaCenter\API\Service\Api\SeriesApiClientInterface;
 use TinyMediaCenter\API\Service\Store\SeriesStoreInterface;
 
 /**
  * Series service.
+ *
+ * TODO folder should become slug
+ * TODO sometimes id is used instead of folder, this should also become slug
  */
 class SeriesService extends AbstractAreaService implements SeriesServiceInterface
 {
@@ -36,14 +40,14 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
     private $seriesApiClient;
 
     /**
-     * @var string
+     * @var RouterInterface
      */
-    private $path;
+    private $router;
 
     /**
      * @var string
      */
-    private $alias;
+    private $path;
 
     /**
      * @var boolean
@@ -60,23 +64,23 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      *
      * @param SeriesStoreInterface     $seriesStore
      * @param SeriesApiClientInterface $seriesApiClient
+     * @param RouterInterface          $router
      * @param string                   $path
-     * @param string                   $alias
      */
-    public function __construct(SeriesStoreInterface $seriesStore, SeriesApiClientInterface $seriesApiClient, $path, $alias)
+    public function __construct(SeriesStoreInterface $seriesStore, SeriesApiClientInterface $seriesApiClient, RouterInterface $router, $path)
     {
         $this->seriesStore = $seriesStore;
         $this->seriesApiClient = $seriesApiClient;
+        $this->router = $router;
         $this->path = $path;
-        $this->alias = $alias;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getMetaInfo()
+    public function getMetaInfo(): Area
     {
-        return new AreaModel(
+        return new Area(
             'series',
             'Series area overview'
         );
@@ -95,72 +99,58 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      */
     public function getCategories()
     {
-        $categories = [];
-
-        foreach ($this->getCategoryNames() as $category) {
-            $categories[] = new CategoryModel($category);
-        }
-
-        return $categories;
+        return array_map(function (string $category): Category {
+            return new Category($category);
+        }, $this->getCategoryNames());
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getByCategory($category)
+    public function getByCategory(string $category): array
     {
-        $result = [];
-
-        foreach ($this->seriesStore->getSeries($category) as $model) {
-            $result[] = $this->convertModels($model, $category);
-        }
-
-        return $result;
+        return array_map(function (StoreSeriesModel $series) use ($category): Series {
+            return $this->convertModel($series, $category);
+        }, $this->seriesStore->getSeries($category));
     }
 
     /**
      * {@inheritDoc}
      */
-    public function get($category, $id)
+    public function get(string $category, string $slug): Series
     {
-        return $this->getSeriesDetails($category, $id);
+        return $this->getSeriesDetails($category, $slug);
     }
 
     /**
      * {@inheritDoc}
      */
-    public function update($category, $series, $title, $tvDbId, $lang)
+    public function update(string $category, string $slug, string $title, string $mediaApiId, string $lang): Series
     {
-        $this->seriesStore->updateDetails($category, $series, $title, $tvDbId, $lang);
-        $model = $this->seriesStore->getSeriesDetails($category, $series);
+        $this->seriesStore->updateDetails($category, $slug, $title, $mediaApiId, $lang);
+        $model = $this->seriesStore->getSeriesDetails($category, $slug);
         $this->updateEpisodes($model);
-        $this->fetchBackgroundImage($category, $series, $model->getApiId(), true);
-        $this->updateThumbnail($category, $series, true);
+        $this->fetchBackgroundImage($category, $slug, $model->getApiId(), true);
+        $this->updateThumbnail($category, $slug, true);
 
-        return $this->getSeriesDetails($category, $series);
+        return $this->getSeriesDetails($category, $slug);
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getSeasons($category, $series)
+    public function getSeasons(string $category, string $slug): array
     {
         $seasons = [];
-        $episodeCount = 0;
-        $current = 0;
 
-        foreach ($this->seriesStore->getEpisodes($category, $series) as $episode) {
-            if ($current !== $episode["season_no"] && $current > 0) {
-                $seasons[] = new SeasonModel($current, $episodeCount);
-                $episodeCount = 0;
-            }
-
-            $current = $episode["season_no"];
-            $episodeCount++;
+        for ($i = 1; $i <= $this->seriesStore->getSeasonCount($category, $slug); $i++) {
+            $seasons[] = new Season($i);
         }
 
-        if ($episodeCount > 0) {
-            $seasons[] = new SeasonModel($current, $episodeCount);
+        foreach ($seasons as $season) {
+            foreach ($this->getEpisodes($category, $slug, $season->getNumber()) as $episode) {
+                $season->addEpisode($episode);
+            }
         }
 
         return $seasons;
@@ -169,9 +159,9 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
     /**
      * {@inheritDoc}
      */
-    public function getSeason($category, $series, $season)
+    public function getSeason(string $category, string $slug, int $season): Season
     {
-        $seasons = $this->getSeasons($category, $series);
+        $seasons = $this->getSeasons($category, $slug);
 
         return $seasons[$season - 1];
     }
@@ -179,23 +169,24 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
     /**
      * {@inheritDoc}
      */
-    public function getEpisodes($category, $series, $season)
+    public function getEpisodes(string $category, string $slug, int $season): array
     {
-        $data = $this->seriesStore->getEpisodes($category, $series);
-        $files = glob(sprintf("%s%s/*.avi", $this->getCategoryPath($category), $series));
+        $files = $this->getEpisodeFiles($category, $slug);
         $episodes = [];
 
-        foreach ($data as $episode) {
-            if ($episode["season_no"] < $season) {
-                continue;
+        foreach ($this->seriesStore->getEpisodes($category, $slug, $season) as $episode) {
+            $link = null;
+
+            if ($this->getFileLink($season, $episode->getNumber(), $files) !== null) {
+                $link = $this->router->pathFor('app.series.categories.category.entries.series.seasons.season.episodes.episode.file', [
+                    'category' => $category,
+                    'series' => $slug,
+                    'season' => $season,
+                    'episode' => $episode->getNumber(),
+                ]);
             }
 
-            if ($episode["season_no"] > $season) {
-                break;
-            }
-
-            $link = $this->getFileLink($season, $episode['episode_no'], $files, $this->path);
-            $episodes[] = new EpisodeModel($episode['episode_no'], $episode['title'], $link, $episode['description']);
+            $episodes[] = new Episode($episode->getNumber(), $episode->getTitle(), $link, $episode->getDescription());
         }
 
         return $episodes;
@@ -204,15 +195,15 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
     /**
      * {@inheritDoc}
      */
-    public function getEpisode($category, $series, $season, $episode)
+    public function getEpisode(string $category, string $slug, int $season, int $episode): Episode
     {
-        $episodes = $this->getEpisodes($category, $series, $season);
-        $episodes = array_values(array_filter($episodes, function (EpisodeModel $episodeModel) use ($episode) {
+        $episodes = $this->getEpisodes($category, $slug, $season);
+        $episodes = array_values(array_filter($episodes, function (Episode $episodeModel) use ($episode) {
             return $episodeModel->getId() === $episode;
         }));
 
         if (count($episodes) !== 1) {
-            throw new NotFoundException(sprintf('Episode %s of season %s of series %s not found', $episode, $season, $series));
+            throw new NotFoundException(sprintf('Episode %s of season %s of series %s not found', $episode, $season, $slug));
         }
 
         return $episodes[0];
@@ -221,87 +212,73 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
     /**
      * {@inheritDoc}
      */
-    public function updateData()
+    public function getEpisodeFile(string $category, string $slug, int $season, int $episode): ?string
     {
-        $protocol = [];
-
-        foreach ($this->getCategoryNames() as $category) {
-            $protocol[] = $this->maintenance($category);
-        }
-
-        return $protocol;
+        return $this->getFileLink($season, $episode, $this->getEpisodeFiles($category, $season));
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getCategoryNames()
+    public function updateData(): array
+    {
+        return array_map(function (string $category) {
+            return $this->maintenance($category);
+        }, $this->getCategoryNames());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getImage(string $category, string $slug, string $type): string
+    {
+        $path = $this->getCategoryPath($category);
+
+        return sprintf('%s%s/%s.jpg', $path, $slug, $type);
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getCategoryNames(): array
     {
         if (empty($this->categoryNames)) {
             /*
-             * shows_root
-            * 	|_ folders (A)
-            *      |_ sub  (B)
-            * Each show has to be placed in its own folder. These folders can be
-            * placed at level (A) or (B) below the shows_root. If they are on level (A)
-            * all shows will be available via a single menu entry (a category -
-            * which will be named default in the database).
-            * Shows can be placed on level (B) to put them into several categories
-            * (the level (A) folders). The setup is auto detected below.
-            */
+             * series_root
+             * 	|_ folders (A)
+             *      |_ sub  (B)
+             * Each series has to be placed in its own folder. These folders can be
+             * placed at level (A) or (B) below the series_root. If they are on level (A)
+             * all series will be available via a single menu entry (a category -
+             * which will be named default in the database).
+             * Series can be placed on level (B) to put them into several categories
+             * (the level (A) folders). The setup is auto detected below.
+             */
+            $this->useDefault = true;
             $folders = $this->getFolders($this->path);
             $sub = $this->getFolders($this->path.$folders[0]."/");
-            $this->useDefault = true;
 
             if (count($sub) > 0) {
                 $files = glob($this->path.$folders[0]."/".$sub[0]."/*.avi");
-
-                if (count($files) > 0) {
-                    $this->useDefault = false;
-                }
+                $this->useDefault = count($files) === 0;
             }
 
-            if ($this->useDefault) {
-                $categories = [SeriesService::DEFAULT_CATEGORY];
-            } else {
-                $categories = [];
-
-                foreach ($folders as $folder) {
-                    $categories[] = $folder;
-                }
-            }
-
-            $this->categoryNames = $categories;
+            $this->categoryNames = $this->useDefault ? [SeriesService::DEFAULT_CATEGORY] : $folders;
         }
 
         return $this->categoryNames;
     }
 
     /**
-     * @param string $base
      * @param string $category
      *
      * @return string
      */
-    private function getCategory($base, $category)
+    private function getCategoryPath(string $category): string
     {
-        $path = $base;
-
-        if (!$this->useDefault) {
-            $path .= $category."/";
-        }
-
-        return $path;
-    }
-
-    /**
-     * @param string $category
-     *
-     * @return string
-     */
-    private function getCategoryPath($category)
-    {
-        return $this->getCategory($this->path, $category);
+        return $this->useDefault
+            ? $this->path
+            : sprintf('%s%s/', $this->path, $category);
     }
 
     /**
@@ -312,7 +289,7 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      *
      * @return string
      */
-    private function getSeriesPath($category, $series)
+    private function getSeriesPath(string $category, string $series): string
     {
         return sprintf('%s%s', $this->getCategoryPath($category), $series);
     }
@@ -320,21 +297,22 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
     /**
      * @param string $category
      *
-     * @return string
+     * @return array
      */
-    private function getCategoryAlias($category)
+    private function getFoldersByCategory(string $category): array
     {
-        return $this->getCategory($this->alias, $category);
+        return $this->getFolders($this->getCategoryPath($category));
     }
 
     /**
      * @param string $category
+     * @param string $series
      *
      * @return array
      */
-    private function getFoldersByCategory($category)
+    private function getEpisodeFiles(string $category, string $series): array
     {
-        return $this->getFolders($this->getCategoryPath($category));
+        return glob(sprintf("%s%s/*.avi", $this->getCategoryPath($category), $series));
     }
 
     /**
@@ -342,38 +320,42 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      *
      * @throws \Exception
      *
-     * @return MaintenanceModel
+     * @return Maintenance
      */
-    private function maintenance($category)
+    private function maintenance(string $category): Maintenance
     {
         $steps = [];
-        $protocol = $this->addMissingShows($category);
+        $folders = $this->getFoldersByCategory($category);
+        $protocol = $this->addMissingShows($category, $folders);
         $steps[] = [
             'description' => 'Check missing show entries (new shows)',
             'protocol' => $protocol,
-            'success' => true,
+            'success' => $this->isMaintenanceSuccessful($protocol),
+            'errors' => $this->getMaintenanceErrors($protocol),
         ];
-        $protocol = $this->removeObsoleteShows($category);
+        $protocol = $this->removeObsoleteShows($category, $folders);
         $steps[] = [
             'description' => 'Check obsolete show entries (removed shows)',
             'protocol' => $protocol,
             'success' => true,
         ];
-        $protocol = $this->updateEpisodesForSeries($this->seriesStore->getSeries($category), $category);
+        //fetching shows from db now, as they might have been updated
+        $series = $this->seriesStore->getSeries($category);
+        $protocol = $this->updateEpisodesForSeries($series, $category);
         $steps[] = [
             'description' => 'Update episodes',
             'protocol' => $protocol,
             'success' => $this->isMaintenanceSuccessful($protocol),
             'errors' => $this->getMaintenanceErrors($protocol),
         ];
-        $protocol = $this->fetchBackgroundImagesForSeries($this->seriesStore->getSeries($category), $category); //fetching shows from db, as they might have been updated
+        $protocol = $this->fetchBackgroundImagesForSeries($series, $category);
         $steps[] = [
             'description' => 'Fetch background images',
             'protocol' => $protocol,
             'success' => $this->isMaintenanceSuccessful($protocol),
             'errors' => $this->getMaintenanceErrors($protocol),
         ];
-        $protocol = $this->updateThumbnailsForSeries($category, $this->getFoldersByCategory($category));
+        $protocol = $this->updateThumbnailsForSeries($category, $folders);
         $steps[] = [
             'description' => 'Update thumbnails',
             'protocol' => $protocol,
@@ -381,19 +363,20 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
             'errors' => $this->getMaintenanceErrors($protocol),
         ];
 
-        return new MaintenanceModel($category, $steps);
+        return new Maintenance($category, $steps);
     }
 
     /**
      * @param string $category
+     * @param array  $folders
      *
      * @return array
      */
-    private function addMissingShows($category)
+    private function addMissingShows(string $category, array $folders): array
     {
         $protocol = [];
 
-        foreach ($this->getFoldersByCategory($category) as $folder) {
+        foreach ($folders as $folder) {
             try {
                 $added = null;
                 $title = str_replace("-", " ", $folder);
@@ -404,10 +387,10 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
                 $added = $this->seriesStore->createIfMissing($category, $folder, $title);
 
                 if (!empty($added)) {
-                    $this->updateTvDbId($category, $folder, $title);
+                    $this->updateMediaApiId($category, $folder, $title);
                     $protocol[] = $showProtocol;
                 }
-            } catch (ScrapeException $e) {
+            } catch (MediaApiClientException $e) {
                 $showProtocol['success'] = false;
                 $showProtocol['error'] = $e->getMessage();
                 $protocol[] = $showProtocol;
@@ -423,11 +406,11 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      * @param string $title
      * @param string $language
      *
-     * @throws ScrapeException
+     * @throws MediaApiClientException
      *
      * @return string
      */
-    private function updateTvDbId($category, $folder, $title, $language = 'de')
+    private function updateMediaApiId(string $category, string $folder, string $title, ?string $language = 'de'): string
     {
         $tvDbId = $this->seriesApiClient->getSeriesId($title);
         $this->seriesStore->updateDetails($category, $folder, $title, $tvDbId, $language);
@@ -437,14 +420,12 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
 
     /**
      * @param string $category
+     * @param array  $folders
      *
      * @return array
      */
-    private function removeObsoleteShows($category)
+    private function removeObsoleteShows(string $category, array $folders): array
     {
-        $folders = $this->getFoldersByCategory($category);
-
-        //TODO use show ids instead of folders
         return $this->seriesStore->removeIfObsolete($category, $folders);
     }
 
@@ -456,11 +437,10 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      *
      * @return array
      */
-    private function updateEpisodesForSeries(array $seriesModels, $category)
+    private function updateEpisodesForSeries(array $seriesModels, string $category): array
     {
         $protocol = [];
 
-        /** @var StoreSeriesModel $seriesModel */
         foreach ($seriesModels as $seriesModel) {
             try {
                 $showProtocol = [
@@ -469,13 +449,13 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
                 ];
 
                 if (empty($seriesModel->getApiId())) {
-                    $seriesModel->setApiId($this->updateTvDbId($category, $seriesModel->getFolder(), $seriesModel->getTitle()));
+                    $seriesModel->setApiId($this->updateMediaApiId($category, $seriesModel->getFolder(), $seriesModel->getTitle()));
                 }
 
                 if (!empty([$seriesModel->getApiId()])) {
                     $this->updateEpisodes($seriesModel);
                 }
-            } catch (ScrapeException $e) {
+            } catch (MediaApiClientException $e) {
                 $showProtocol['success'] = false;
                 $showProtocol['error'] = $e->getMessage();
             }
@@ -489,12 +469,12 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
     /**
      * @param StoreSeriesModel $seriesModel
      *
-     * @throws ScrapeException
+     * @throws MediaApiClientException
      */
     private function updateEpisodes(StoreSeriesModel $seriesModel)
     {
-        $seasons = $this->seriesApiClient->getSeriesInfoById($seriesModel->getApiId(), $seriesModel->getOrderingScheme(), $seriesModel->getLanguage());
-        $this->seriesStore->updateEpisodes($seriesModel->getId(), $seasons);
+        $series = $this->seriesApiClient->getSeriesInfoById($seriesModel->getApiId(), $seriesModel->getOrderingScheme(), $seriesModel->getLanguage());
+        $this->seriesStore->updateEpisodes($seriesModel->getId(), $series);
     }
 
     /**
@@ -503,11 +483,10 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      *
      * @return array
      */
-    private function fetchBackgroundImagesForSeries(array $seriesModels, $category)
+    private function fetchBackgroundImagesForSeries(array $seriesModels, string $category): array
     {
         $protocol = [];
 
-        /** @var StoreSeriesModel $seriesModel */
         foreach ($seriesModels as $seriesModel) {
             try {
                 $folderProtocol = [
@@ -534,7 +513,7 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      * @param string $tvDbId
      * @param bool   $force
      */
-    private function fetchBackgroundImage($category, $series, $tvDbId, $force = false)
+    private function fetchBackgroundImage(string $category, string $series, string $tvDbId, bool $force = false)
     {
         $seriesPath = $this->getSeriesPath($category, $series);
         $backgroundImage = sprintf('%s/bg.jpg', $seriesPath);
@@ -544,7 +523,11 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
         }
 
         if (!file_exists($backgroundImage)) {
-            $this->seriesApiClient->downloadBackgroundImage($tvDbId, $backgroundImage);
+            $image = $this->seriesApiClient->downloadBackgroundImage($tvDbId);
+
+            $fp = fopen($backgroundImage, 'x');
+            fwrite($fp, $image);
+            fclose($fp);
         }
     }
 
@@ -554,7 +537,7 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      *
      * @return array
      */
-    private function updateThumbnailsForSeries($category, array $folders)
+    private function updateThumbnailsForSeries(string $category, array $folders): array
     {
         $protocol = [];
 
@@ -585,7 +568,7 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      *
      * @throws \Exception
      */
-    private function updateThumbnail($category, $series, $force = false)
+    private function updateThumbnail(string $category, string $series, bool $force = false)
     {
         $seriesPath = $this->getSeriesPath($category, $series);
         $backgroundImage = sprintf('%s/bg.jpg', $seriesPath);
@@ -608,46 +591,61 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
      * @param StoreSeriesModel $model
      * @param string           $category
      *
-     * @return SeriesModel
+     * @return Series
      */
-    private function convertModels(StoreSeriesModel $model, $category)
+    private function convertModel(StoreSeriesModel $model, string $category): Series
     {
-        $path = $this->getCategoryAlias($category);
+        $thumbnail = $this->router->pathFor('app.series.categories.category.entries.series.image', [
+            'category' => $category,
+            'series' => $model->getFolder(),
+            'type' => 'thumbnail',
+        ]);
+        $background = $this->router->pathFor('app.series.categories.category.entries.series.image', [
+            'category' => $category,
+            'series' => $model->getFolder(),
+            'type' => 'bg',
+        ]);
 
-        return new SeriesModel(
+        return new Series(
             $model->getId(),
             $model->getTitle(),
-            $path.$model->getFolder().'/thumb.jpg',
+            $thumbnail,
+            $background,
             $model->getLanguage(),
-            $model->getApiId(),
-            $model->getFolder()
+            $model->getFolder(),
+            $model->getApiId()
         );
     }
 
     /**
      * @param string $category
-     * @param string $id
+     * @param string $slug
      *
      * @throws NotFoundException if the series was not found in the store
+     * @throws \Exception
      *
-     * @return SeriesModel
+     * @return Series
      */
-    private function getSeriesDetails($category, $id)
+    private function getSeriesDetails(string $category, string $slug): Series
     {
-        $model = $this->seriesStore->getSeriesDetails($category, $id);
+        $storeModel = $this->seriesStore->getSeriesDetails($category, $slug);
+        $series = $this->convertModel($storeModel, $category);
 
-        return $this->convertModels($model, $category);
+        foreach ($this->getSeasons($category, $slug) as $season) {
+            $series->addSeason($season);
+        }
+
+        return $series;
     }
 
     /**
      * @param string $seasonNo
      * @param string $episodeNo
      * @param array  $files
-     * @param string $baseDir
      *
      * @return string|null
      */
-    private function getFileLink($seasonNo, $episodeNo, $files, $baseDir)
+    private function getFileLink(string $seasonNo, string $episodeNo, array $files): ?string
     {
         $link = null;
 
@@ -657,8 +655,7 @@ class SeriesService extends AbstractAreaService implements SeriesServiceInterfac
 
         foreach ($files as $file) {
             if (strpos($file, "_".$seasonNo."x".$episodeNo) !== false) {
-                $link = str_replace($baseDir, "", $file);
-                $link = str_replace("\\", "/", $link);
+                $link = str_replace("\\", "/", $file);
             }
         }
 

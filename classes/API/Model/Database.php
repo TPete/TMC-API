@@ -5,7 +5,7 @@ namespace TinyMediaCenter\API\Model;
 /**
  * Class DBModel
  */
-class DBModel
+class Database
 {
     /**
      * @var string

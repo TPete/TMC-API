@@ -3,9 +3,7 @@
 namespace TinyMediaCenter\API\Service\Api;
 
 /**
- * Class AbstractMediaApiClient
- *
- * TODO this should be used by all media api clients
+ * Abstract base class for the media API clients.
  */
 abstract class AbstractMediaApiClient
 {
@@ -27,10 +25,11 @@ abstract class AbstractMediaApiClient
     /**
      * @param string $url
      * @param array  $args
+     * @param bool   $decodeJson
      *
      * @return mixed
      */
-    protected function curlDownload($url, $args = [])
+    protected function curlDownload($url, $args = [], $decodeJson = false)
     {
         $url = $this->baseUrl.$url;
         $args = array_merge($this->defaultArgs, $args);
@@ -52,14 +51,19 @@ abstract class AbstractMediaApiClient
         $output = curl_exec($ch);
         curl_close($ch);
 
+        if ($decodeJson) {
+            $output = json_decode($output, true);
+        }
+
         return $output;
     }
 
     /**
      * @param string $url
-     * @param string $file
+     *
+     * @return string
      */
-    protected function downloadImage($url, $file)
+    protected function downloadImage($url)
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_HEADER, 0);
@@ -68,12 +72,6 @@ abstract class AbstractMediaApiClient
         $raw = curl_exec($ch);
         curl_close($ch);
 
-        if (file_exists($file)) {
-            unlink($file);
-        }
-
-        $fp = fopen($file, 'x');
-        fwrite($fp, $raw);
-        fclose($fp);
+        return $raw;
     }
 }

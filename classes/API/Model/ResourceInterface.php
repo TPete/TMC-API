@@ -5,7 +5,7 @@ namespace TinyMediaCenter\API\Model;
 /**
  * A JSONAPI resource.
  */
-interface ResourceModelInterface
+interface ResourceInterface
 {
     /**
      * Returns the resource id.
@@ -19,12 +19,22 @@ interface ResourceModelInterface
      *
      * @return string
      */
-    public function getType();
+    public function getType(): string;
+
+    /**
+     * @param array $includes
+     */
+    public function setIncludes(array $includes);
+
+    /**
+     * @return ResourceInterface[]
+     */
+    public function getIncludes(): array;
 
     /**
      * Returns the resources's array representation.
      *
      * @return array
      */
-    public function toArray();
+    public function toArray(): array;
 }

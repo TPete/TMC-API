@@ -2,12 +2,12 @@
 
 namespace TinyMediaCenter\API\Model\Resource\Area\Category\Movies;
 
-use TinyMediaCenter\API\Model\AbstractResourceModel;
+use TinyMediaCenter\API\Model\AbstractResource;
 
 /**
  * Class GenresModel
  */
-class GenresModel extends AbstractResourceModel
+class Genres extends AbstractResource
 {
     /**
      * @var string

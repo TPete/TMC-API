@@ -4,6 +4,7 @@ namespace TinyMediaCenter\API\Controller\Area;
 
 use Slim\Http\Request;
 use Slim\Http\Response;
+use Slim\Http\Stream;
 use TinyMediaCenter\API\Controller\AbstractController;
 use TinyMediaCenter\API\Service\Area\MovieServiceInterface;
 
@@ -176,13 +177,58 @@ class MovieController extends AbstractController
                 $movie = $this->movieService->get($category, $id);
             } else {
                 $remoteId = $request->getParsedBodyParam('remoteId');
-                $filename = $request->getParsedBodyParam('filename');
                 $movie = $this
                     ->movieService
-                    ->update($category, $id, $remoteId, $filename);
+                    ->update($category, $id, $remoteId);
             }
 
             return $this->returnResources($response, $movie);
+        } catch (\Exception $e) {
+            return $this->handleException($e, $response);
+        }
+    }
+
+    /**
+     * @param Request  $request
+     * @param Response $response
+     * @param string   $category
+     * @param int      $id
+     * @param string   $type
+     *
+     * @return Response
+     */
+    public function imageAction(Request $request, Response $response, $category, $id, $type)
+    {
+        try {
+            $image = $this->movieService->getImage($category, $id, $type);
+            $response->write(file_get_contents($image));
+
+            return $response
+                ->withHeader('Content-Type', 'image/jpeg')
+                ->withHeader('Cache-Control', 'public, max-age=31536000');
+        } catch (\Exception $e) {
+            return $this->handleException($e, $response);
+        }
+    }
+
+    /**
+     * @param Request  $request
+     * @param Response $response
+     * @param string   $category
+     * @param int      $id
+     *
+     * @return Response
+     */
+    public function fileAction(Request $request, Response $response, $category, $id)
+    {
+        try {
+            $file = $this->movieService->getMovieFile($category, $id);
+
+            return $response
+                ->withAddedHeader('Content-Type', 'video/x-msvideo')
+                ->withAddedHeader('Content-Length', filesize($file))
+                ->withAddedHeader('Content-Disposition', sprintf('attachment; filename= "%s"', basename($file)))
+                ->withBody(new Stream(fopen($file, 'rb')));
         } catch (\Exception $e) {
             return $this->handleException($e, $response);
         }

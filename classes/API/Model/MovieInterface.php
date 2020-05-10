@@ -5,7 +5,7 @@ namespace TinyMediaCenter\API\Model;
 /**
  * Interface MovieModelInterface
  */
-interface MovieModelInterface
+interface MovieInterface
 {
     /**
      * @return string

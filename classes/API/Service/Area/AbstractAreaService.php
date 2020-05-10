@@ -15,15 +15,12 @@ abstract class AbstractAreaService
      */
     protected function getFolders($path, $exclude = [])
     {
-        $elements = scandir($path);
         $folders = [];
-        $exc = array_merge($exclude, ['.', '..', '$RECYCLE.BIN', 'System Volume Information']);
+        $exclude = array_merge($exclude, ['.', '..', '$RECYCLE.BIN', 'System Volume Information']);
 
-        foreach ($elements as $ele) {
-            if (!in_array($ele, $exc)) {
-                if (is_dir($path.$ele)) {
-                    $folders[] = $ele;
-                }
+        foreach (scandir($path) as $element) {
+            if (!in_array($element, $exclude) && is_dir($path.$element)) {
+                $folders[] = $element;
             }
         }
 

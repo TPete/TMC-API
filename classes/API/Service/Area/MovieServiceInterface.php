@@ -2,11 +2,11 @@
 
 namespace TinyMediaCenter\API\Service\Area;
 
-use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\CollectionModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\GenresModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\MaintenanceModel;
-use TinyMediaCenter\API\Model\Resource\Area\Category\MovieModel;
-use TinyMediaCenter\API\Model\Resource\AreaModel;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\Collection;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\Genres;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movies\Maintenance;
+use TinyMediaCenter\API\Model\Resource\Area\Category\Movie;
+use TinyMediaCenter\API\Model\Resource\Area;
 
 /**
  * Movies service.
@@ -16,7 +16,7 @@ interface MovieServiceInterface extends AreaServiceInterface
     /**
      * Get meta info about the series area.
      *
-     * @return AreaModel
+     * @return Area
      */
     public function getMetaInfo();
 
@@ -31,7 +31,7 @@ interface MovieServiceInterface extends AreaServiceInterface
      * @param int    $count
      * @param int    $offset
      *
-     * @return MovieModel[]
+     * @return Movie[]
      */
     public function getByCategory($category, $sort, $order, $filter = '', array $genres = [], $count = 0, $offset = 0);
 
@@ -44,7 +44,7 @@ interface MovieServiceInterface extends AreaServiceInterface
      * @param int    $count
      * @param int    $offset
      *
-     * @return MovieModel[]
+     * @return Movie[]
      */
     public function getByCategoryAndCollection($category, $collection, $count = 0, $offset = 0);
 
@@ -56,7 +56,7 @@ interface MovieServiceInterface extends AreaServiceInterface
      *
      * @throws \Exception
      *
-     * @return MovieModel
+     * @return Movie
      */
     public function get($category, $id);
 
@@ -64,13 +64,12 @@ interface MovieServiceInterface extends AreaServiceInterface
      * @param string $category
      * @param int    $id
      * @param int    $remoteId
-     * @param string $filename
      *
      * @throws \Exception
      *
-     * @return MovieModel
+     * @return Movie
      */
-    public function update($category, $id, $remoteId, $filename);
+    public function update($category, $id, $remoteId);
 
     /**
      * Get genres for the given category, optionally filtered.
@@ -78,7 +77,7 @@ interface MovieServiceInterface extends AreaServiceInterface
      * @param string      $category
      * @param string|null $filter
      *
-     * @return GenresModel
+     * @return Genres
      */
     public function getGenres($category, $filter = null);
 
@@ -87,7 +86,7 @@ interface MovieServiceInterface extends AreaServiceInterface
      *
      * @param string $category
      *
-     * @return CollectionModel[]
+     * @return Collection[]
      */
     public function getCollections($category);
 
@@ -98,7 +97,7 @@ interface MovieServiceInterface extends AreaServiceInterface
      *
      * @throws \Exception
      *
-     * @return MovieModel
+     * @return Movie
      */
     public function lookupMovie($remoteId);
 
@@ -107,7 +106,24 @@ interface MovieServiceInterface extends AreaServiceInterface
      *
      * @throws \Exception
      *
-     * @return MaintenanceModel[]
+     * @return Maintenance[]
      */
     public function updateData();
+
+    /**
+     * @param string $category
+     * @param int    $id
+     * @param string $type
+     *
+     * @return string
+     */
+    public function getImage($category, $id, $type);
+
+    /**
+     * @param string $category
+     * @param int    $id
+     *
+     * @return string
+     */
+    public function getMovieFile($category, $id);
 }

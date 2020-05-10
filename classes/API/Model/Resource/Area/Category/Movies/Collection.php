@@ -2,12 +2,13 @@
 
 namespace TinyMediaCenter\API\Model\Resource\Area\Category\Movies;
 
-use TinyMediaCenter\API\Model\AbstractResourceModel;
+use TinyMediaCenter\API\Model\AbstractResource;
+use TinyMediaCenter\API\Model\CollectionInterface;
 
 /**
  * Class CollectionModel
  */
-class CollectionModel extends AbstractResourceModel implements CollectionModelInterface
+class Collection extends AbstractResource implements CollectionInterface
 {
     /**
      * @var string
@@ -72,7 +73,7 @@ class CollectionModel extends AbstractResourceModel implements CollectionModelIn
     /**
      * {@inheritDoc}
      */
-    public function toArray()
+    public function toArray(): array
     {
         return [
             'type' => $this->getType(),
@@ -80,7 +81,7 @@ class CollectionModel extends AbstractResourceModel implements CollectionModelIn
             'attributes' => [
                 'name' => $this->getName(),
                 'overview' => $this->getOverview(),
-                'parts' => $this->getParts(), //TODO move to relationships?
+                'parts' => $this->getParts(),
             ],
         ];
     }

@@ -2,7 +2,7 @@
 
 namespace TinyMediaCenter\API\Service\Store;
 
-use TinyMediaCenter\API\Model\DBModel;
+use TinyMediaCenter\API\Model\Database;
 
 /**
  * A store.
@@ -12,11 +12,11 @@ interface StoreInterface
     /**
      * Check the store setup.
      *
-     * @param DBModel $dbModel
+     * @param Database $dbModel
      *
      * @return bool
      */
-    public function checkSetup(DBModel $dbModel = null);
+    public function checkSetup(Database $dbModel = null);
 
     /**
      * Setup the store.

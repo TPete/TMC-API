@@ -2,12 +2,12 @@
 
 namespace TinyMediaCenter\API\Model\Resource\Area\Category\Movies;
 
-use TinyMediaCenter\API\Model\AbstractResourceModel;
+use TinyMediaCenter\API\Model\AbstractResource;
 
 /**
  * Class MaintenanceModel
  */
-class MaintenanceModel extends AbstractResourceModel
+class Maintenance extends AbstractResource
 {
     /**
      * {@inheritDoc}
@@ -34,7 +34,7 @@ class MaintenanceModel extends AbstractResourceModel
     /**
      * {@inheritDoc}
      */
-    public function toArray()
+    public function toArray(): array
     {
         return array_merge(
             parent::toArray(),

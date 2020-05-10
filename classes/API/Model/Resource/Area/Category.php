@@ -2,12 +2,12 @@
 
 namespace TinyMediaCenter\API\Model\Resource\Area;
 
-use TinyMediaCenter\API\Model\AbstractResourceModel;
+use TinyMediaCenter\API\Model\AbstractResource;
 
 /**
  * Class CategoryModel
  */
-class CategoryModel extends AbstractResourceModel
+class Category extends AbstractResource
 {
     /**
      * @var string

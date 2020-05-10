@@ -5,7 +5,7 @@ namespace TinyMediaCenter\API\Model;
 /**
  * Class MediaFileInfoModel
  */
-class MediaFileInfoModel
+class MediaFileInfo
 {
     /**
      * getId3 result key: File play time.
@@ -89,8 +89,8 @@ class MediaFileInfoModel
     public function getDuration()
     {
         if (null === $this->duration) {
-            $duration = $this->fileInfo[self::KEY_PLAYTIME_STRING];
-            $tmp = substr($this->fileInfo[self::KEY_PLAYTIME_STRING], 0, strrpos($duration, ':'));
+            $duration = $this->fileInfo[self::KEY_PLAYTIME_STRING] ?? '';
+            $tmp = substr($duration, 0, strrpos($duration, ':'));
 
             if (strpos($tmp, ':') !== false) {
                 $duration = $tmp;
@@ -110,7 +110,9 @@ class MediaFileInfoModel
     public function getResolutionX()
     {
         if (null === $this->resolutionX) {
-            $this->resolutionX = $this->fileInfo[self::KEY_VIDEO][self::KEY_RESOLUTION_X];
+            $this->resolutionX = isset($this->fileInfo[self::KEY_VIDEO])
+                ? $this->fileInfo[self::KEY_VIDEO][self::KEY_RESOLUTION_X]
+                : '';
         }
 
         return $this->resolutionX;
@@ -122,7 +124,9 @@ class MediaFileInfoModel
     public function getResolutionY()
     {
         if (null === $this->resolutionY) {
-            $this->resolutionY = $this->fileInfo[self::KEY_VIDEO][self::KEY_RESOLUTION_Y];
+            $this->resolutionY = isset($this->fileInfo[self::KEY_VIDEO])
+                ? $this->fileInfo[self::KEY_VIDEO][self::KEY_RESOLUTION_Y]
+                : '';
         }
 
         return $this->resolutionY;
@@ -142,7 +146,9 @@ class MediaFileInfoModel
     public function getSound()
     {
         if (null === $this->sound) {
-            $sound = $this->fileInfo[self::KEY_AUDIO][self::KEY_CHANNELS];
+            $sound = isset($this->fileInfo[self::KEY_AUDIO])
+                ? $this->fileInfo[self::KEY_AUDIO][self::KEY_CHANNELS]
+                : '';
 
             if (self::AUDIO_CHANNELS_2 === $sound) {
                 $sound = 'Stereo';

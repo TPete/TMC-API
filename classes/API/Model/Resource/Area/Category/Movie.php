@@ -2,12 +2,12 @@
 
 namespace TinyMediaCenter\API\Model\Resource\Area\Category;
 
-use TinyMediaCenter\API\Model\ResourceModelInterface;
+use TinyMediaCenter\API\Model\ResourceInterface;
 
 /**
  * Class MovieModel
  */
-class MovieModel extends SimpleMovieModel implements ResourceModelInterface
+class Movie extends SimpleMovie implements ResourceInterface
 {
     /**
      * @var string
@@ -73,7 +73,7 @@ class MovieModel extends SimpleMovieModel implements ResourceModelInterface
     /**
      * @return string
      */
-    public function getMovieDbId()
+    public function getMovieDbId(): string
     {
         return $this->movieDbId;
     }
@@ -81,7 +81,7 @@ class MovieModel extends SimpleMovieModel implements ResourceModelInterface
     /**
      * @return string
      */
-    public function getFilename()
+    public function getFilename(): string
     {
         return $this->filename;
     }
@@ -89,7 +89,7 @@ class MovieModel extends SimpleMovieModel implements ResourceModelInterface
     /**
      * @return string
      */
-    public function getPoster()
+    public function getPoster(): string
     {
         return $this->poster;
     }
@@ -97,7 +97,7 @@ class MovieModel extends SimpleMovieModel implements ResourceModelInterface
     /**
      * @return string
      */
-    public function getPosterBig()
+    public function getPosterBig(): string
     {
         return $this->posterBig;
     }
@@ -105,7 +105,7 @@ class MovieModel extends SimpleMovieModel implements ResourceModelInterface
     /**
      * @return string
      */
-    public function getInfo()
+    public function getInfo(): string
     {
         return $this->info;
     }
@@ -113,7 +113,7 @@ class MovieModel extends SimpleMovieModel implements ResourceModelInterface
     /**
      * @return string
      */
-    public function getCollectionName()
+    public function getCollectionName(): string
     {
         return $this->collectionName;
     }
@@ -121,7 +121,7 @@ class MovieModel extends SimpleMovieModel implements ResourceModelInterface
     /**
      * {@inheritDoc}
      */
-    public function toArray()
+    public function toArray(): array
     {
         $array = parent::toArray();
 

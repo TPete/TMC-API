@@ -2,12 +2,13 @@
 
 namespace TinyMediaCenter\API\Model\Resource\Area\Category\Series\Season;
 
-use TinyMediaCenter\API\Model\AbstractResourceModel;
+use TinyMediaCenter\API\Model\AbstractResource;
+use TinyMediaCenter\API\Model\Series\Season\EpisodeInterface;
 
 /**
  * An episode of a tv series.
  */
-class EpisodeModel extends AbstractResourceModel
+class Episode extends AbstractResource implements EpisodeInterface
 {
     /**
      * {@inheritDoc}
@@ -48,15 +49,47 @@ class EpisodeModel extends AbstractResourceModel
     /**
      * {@inheritDoc}
      */
-    public function toArray()
+    public function getNumber(): int
+    {
+        return $this->getId();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getTitle(): string
+    {
+        return $this->title;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getDescription(): string
+    {
+        return $this->description;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getUrl(): ?string
+    {
+        return $this->url;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function toArray(): array
     {
         return array_merge(
             parent::toArray(),
             [
                 'attributes' => [
-                    'title' => $this->title,
-                    'url' => $this->url,
-                    'description' => $this->description,
+                    'title' => $this->getTitle(),
+                    'url' => $this->getUrl(),
+                    'description' => $this->getDescription(),
                 ],
             ]
         );

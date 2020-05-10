@@ -7,7 +7,7 @@ use TinyMediaCenter\API\Exception\InvalidDataException;
 /**
  * Class ConfigModel
  */
-class ConfigModel
+class Config
 {
     /**
      * Name of the config file.
@@ -25,19 +25,9 @@ class ConfigModel
     const KEY_PATH_MOVIES = 'pathMovies';
 
     /**
-     * Alias for movies folder.
-     */
-    const KEY_ALIAS_MOVIES = 'aliasMovies';
-
-    /**
      * Path to shows folder.
      */
     const KEY_PATH_SHOWS = 'pathShows';
-
-    /**
-     * Alias to shows folder.
-     */
-    const KEY_ALIAS_SHOWS = 'aliasShows';
 
     /**
      * API key for themoviedb.org
@@ -75,7 +65,7 @@ class ConfigModel
     private $data;
 
     /**
-     * @var DBModel
+     * @var Database
      */
     private $dbModel;
 
@@ -93,7 +83,7 @@ class ConfigModel
         }
 
         $this->data = $config;
-        $this->dbModel = new DBModel($config[self::KEY_DB_HOST], $config[self::KEY_DB_NAME], $config[self::KEY_DB_USER], $config[self::KEY_DB_PASSWORD]);
+        $this->dbModel = new Database($config[self::KEY_DB_HOST], $config[self::KEY_DB_NAME], $config[self::KEY_DB_USER], $config[self::KEY_DB_PASSWORD]);
     }
 
     /**
@@ -103,7 +93,7 @@ class ConfigModel
      *
      * @throws InvalidDataException
      *
-     * @return ConfigModel
+     * @return Config
      */
     public static function init()
     {
@@ -125,7 +115,7 @@ class ConfigModel
 
         $config = json_decode($fileData, true);
 
-        return new ConfigModel($config);
+        return new Config($config);
     }
 
     /**
@@ -157,11 +147,9 @@ class ConfigModel
             $result = [
                 'movies' => [
                     self::KEY_PATH_MOVIES => $this->get(self::KEY_PATH_MOVIES),
-                    self::KEY_ALIAS_MOVIES => $this->get(self::KEY_ALIAS_MOVIES),
                 ],
                 'show' => [
                     self::KEY_PATH_SHOWS => $this->get(self::KEY_PATH_SHOWS),
-                    self::KEY_ALIAS_SHOWS => $this->get(self::KEY_ALIAS_SHOWS),
                 ],
                 'db' => [
                     self::KEY_DB_HOST => $this->get(self::KEY_DB_HOST),
@@ -190,16 +178,6 @@ class ConfigModel
     }
 
     /**
-     * Returns the alias for the movies folder.
-     *
-     * @return string
-     */
-    public function getAliasMovies()
-    {
-        return $this->get(self::KEY_ALIAS_MOVIES);
-    }
-
-    /**
      * Returns the path to the shows folder.
      *
      * @return string
@@ -207,16 +185,6 @@ class ConfigModel
     public function getPathShows()
     {
         return $this->get(self::KEY_PATH_SHOWS);
-    }
-
-    /**
-     * Returns the alias for the shows folder.
-     *
-     * @return string
-     */
-    public function getAliasShows()
-    {
-        return $this->get(self::KEY_ALIAS_SHOWS);
     }
 
     /**
@@ -242,7 +210,7 @@ class ConfigModel
     /**
      * Returns the database model.
      *
-     * @return DBModel
+     * @return Database
      */
     public function getDbModel()
     {
@@ -258,9 +226,7 @@ class ConfigModel
     {
         $required = [
             self::KEY_PATH_MOVIES,
-            self::KEY_ALIAS_MOVIES,
             self::KEY_PATH_SHOWS,
-            self::KEY_ALIAS_SHOWS,
             self::KEY_TMDB_API_KEY,
             self::KEY_TTVDB_API_KEY,
             self::KEY_DB_HOST,
@@ -323,7 +289,7 @@ class ConfigModel
                             break;
                         //fall-through
                         case '{':
-                            //fall-through
+                        //fall-through
                         case '[':
                             $level++;
                         //fall-through

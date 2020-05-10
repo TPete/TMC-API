@@ -3,11 +3,9 @@
 namespace TinyMediaCenter\API\Exception;
 
 /**
- * Class ScrapeException
- *
- * TODO rename
+ * Class MediaApiClientException
  */
-class ScrapeException extends \Exception
+class MediaApiClientException extends \Exception
 {
     /**
      * ScrapeException constructor.

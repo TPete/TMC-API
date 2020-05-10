@@ -2,7 +2,8 @@
 
 namespace TinyMediaCenter\API\Service\Api;
 
-use TinyMediaCenter\API\Exception\ScrapeException;
+use TinyMediaCenter\API\Exception\MediaApiClientException;
+use TinyMediaCenter\API\Model\SeriesInterface;
 
 /**
  * Interface SeriesApiInterface
@@ -14,30 +15,31 @@ interface SeriesApiClientInterface
      *
      * @param string $name
      *
-     * @throws ScrapeException
+     * @throws MediaApiClientException
      *
      * @return string
      */
-    public function getSeriesId($name);
+    public function getSeriesId(string $name): string;
 
     /**
      * Returns the info for the series, if available.
      *
-     * @param int    $id
+     * @param string $id
      * @param string $orderingScheme
      * @param string $lang
      *
-     * @throws ScrapeException
+     * @throws MediaApiClientException
      *
-     * @return array
+     * @return SeriesInterface
      */
-    public function getSeriesInfoById($id, $orderingScheme, $lang = 'de');
+    public function getSeriesInfoById(string $id, string $orderingScheme, ?string $lang = 'de'): SeriesInterface;
 
     /**
      * Downloads the background image for the series.
      *
      * @param string $seriesId
-     * @param string $path
+     *
+     * @return string
      */
-    public function downloadBackgroundImage($seriesId, $path);
+    public function downloadBackgroundImage(string $seriesId): string;
 }

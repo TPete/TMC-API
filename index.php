@@ -68,10 +68,12 @@ $app
                         $this->get('/categories/', SeriesController::class.':categoriesAction')->setName('app.series.categories.index');
                         $this->get('/categories/{category}/', SeriesController::class.':categoryAction')->setName('app.series.categories.category.index');
                         $this->map(['GET', 'POST'], '/categories/{category}/entries/{series}/', SeriesController::class.':detailsAction')->setName('app.series.categories.category.entries.series');
+                        $this->get('/categories/{category}/entries/{series}/image/types/{type}/', SeriesController::class.':imageAction')->setName('app.series.categories.category.entries.series.image');
                         $this->get('/categories/{category}/entries/{series}/seasons/', SeriesController::class.':seasonsIndexAction')->setName('app.series.categories.category.entries.series.seasons');
                         $this->get('/categories/{category}/entries/{series}/seasons/{season}/', SeriesController::class.':seasonDetailsAction')->setName('app.series.categories.category.entries.series.seasons.season');
                         $this->get('/categories/{category}/entries/{series}/seasons/{season}/episodes/', SeriesController::class.':episodesIndexAction')->setName('app.series.categories.category.entries.series.seasons.season.episodes');
                         $this->get('/categories/{category}/entries/{series}/seasons/{season}/episodes/{episode}/', SeriesController::class.':episodeDetailsAction')->setName('app.series.categories.category.entries.series.seasons.season.episodes.episode');
+                        $this->get('/categories/{category}/entries/{series}/seasons/{season}/episodes/{episode}/file/', SeriesController::class.':episodeFileAction')->setName('app.series.categories.category.entries.series.seasons.season.episodes.episode.file');
 
                         $this->post('/maintenance/', SeriesController::class.':maintenanceAction')->setName('app.series.maintenance');
                     }
@@ -86,6 +88,8 @@ $app
                         $this->get('/categories/', MovieController::class.':categoriesAction')->setName('app.movies.categories.index');
                         $this->get('/categories/{category}/', MovieController::class.':categoryAction')->setName('app.movies.categories.category.index');
                         $this->map(['GET', 'POST'], '/categories/{category}/movies/{id}/', MovieController::class.':detailsAction')->setName('app.movies.movie_details');
+                        $this->get('/categories/{category}/movies/{id}/images/types/{type}/', MovieController::class.':imageAction')->setName('app.movies.movie_images');
+                        $this->get('/categories/{category}/movies/{id}/file/', MovieController::class.':fileAction')->setName('app.movies.movie_file');
                         $this->get('/categories/{category}/genres/', MovieController::class.':genresAction')->setName('app.movies.genres');
                         //TODO add /categories/{category}/genres/{genre}/
                         $this->get('/categories/{category}/collections/', MovieController::class.':collectionsAction')->setName('app.movies.collections');
@@ -112,7 +116,7 @@ try {
     };
 
     //config data
-    $configModel = API\Model\ConfigModel::init();
+    $configModel = API\Model\Config::init();
     $dbModel = $configModel->getDbModel();
 
     //index
@@ -125,12 +129,12 @@ try {
 
     //TV series
     $seriesStore = new API\Service\Store\SeriesStoreDB($dbModel);
-    $tTvDbWrapper = new API\Service\Api\Series\TheTvDbApiClientClient($configModel->getTtvdbApiKey());
+    $tTvDbWrapper = new API\Service\Api\Series\TheTvDbApiClient($configModel->getTtvdbApiKey());
     $seriesService = new SeriesService(
         $seriesStore,
         $tTvDbWrapper,
-        $configModel->getPathShows(),
-        $configModel->getAliasShows()
+        $container['router'],
+        $configModel->getPathShows()
     );
     $container['series_service'] = $seriesService;
     $container[SeriesController::class] = function (Container $container) {
@@ -142,12 +146,12 @@ try {
 
     //movies
     $movieStore = new API\Service\Store\MovieStoreDB($dbModel);
-    $theMovieDbApi = new API\Service\Api\Movies\TheMoviesDbApiClientClient($configModel->getTmdbApiKey(), $language);
+    $theMovieDbApi = new API\Service\Api\Movies\TheMoviesDbApiClient($configModel->getTmdbApiKey(), $language);
     $movieService = new MovieService(
         $movieStore,
         $theMovieDbApi,
-        $configModel->getPathMovies(),
-        $configModel->getAliasMovies()
+        $container['router'],
+        $configModel->getPathMovies()
     );
     $container['movie_service'] = $movieService;
     $container[MovieController::class] = function (Container $container) {
